@@ -4,11 +4,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.matchesRegex;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,6 +23,12 @@ class SafetyAnalysisControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private SafetyAnalysisService safetyAnalysisService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void analyze_should_return_201_created() throws Exception {
@@ -69,5 +78,34 @@ class SafetyAnalysisControllerIntegrationTest {
         .andExpect(jsonPath("$.error.code").value("COMMON-002"))
         .andExpect(jsonPath("$.error.message")
                 .value("요청한 리소스를 찾을 수 없습니다."));
+    }
+
+    @Test
+    void result_should_return_saved_analysis_and_factors() throws Exception {
+        jdbcTemplate.update(
+                "UPDATE registry_rights SET status = 'ACTIVE' WHERE registry_snapshot_id = ?",
+                2L
+        );
+        var analysis = safetyAnalysisService.analyze(5L);
+        assertThat(analysis.factors()).isNotEmpty();
+
+        mockMvc.perform(get("/api/risk-analyses/{id}/result", analysis.id()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(analysis.id()))
+                .andExpect(jsonPath("$.data.propertyId").value(5))
+                .andExpect(jsonPath("$.data.policyVersion").value(analysis.policyVersion()))
+                .andExpect(jsonPath("$.data.riskScore").value(analysis.riskScore().doubleValue()))
+                .andExpect(jsonPath("$.data.factors.length()").value(analysis.factors().size()))
+                .andExpect(jsonPath("$.data.factors[0].id").value(analysis.factors().getFirst().id()))
+                .andExpect(jsonPath("$.data.factors[0].factorType")
+                        .value(analysis.factors().getFirst().factorType()));
+    }
+
+    @Test
+    void result_should_return_404_when_analysis_not_found() throws Exception {
+        mockMvc.perform(get("/api/risk-analyses/{id}/result", 999999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("COMMON-002"));
     }
 }

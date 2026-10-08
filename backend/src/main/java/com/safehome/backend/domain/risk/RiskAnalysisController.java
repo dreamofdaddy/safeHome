@@ -4,6 +4,7 @@ import com.safehome.backend.common.response.ApiResponse;
 import com.safehome.backend.domain.risk.dto.RiskAnalysisCreateRequest;
 import com.safehome.backend.domain.risk.dto.RiskAnalysisResponse;
 import com.safehome.backend.domain.risk.dto.RiskAnalysisUpdateRequest;
+import com.safehome.backend.domain.risk.dto.SafetyAnalysisResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +32,13 @@ public class RiskAnalysisController {
             @PathVariable Long id
     ) {
         return ResponseEntity.ok(ApiResponse.success(riskAnalysisService.findById(id)));
+    }
+
+    @GetMapping("/{id}/result")
+    public ResponseEntity<ApiResponse<SafetyAnalysisResponse>> findResultById(
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(riskAnalysisService.findResultById(id)));
     }
 
     @GetMapping("/property/{propertyId}")

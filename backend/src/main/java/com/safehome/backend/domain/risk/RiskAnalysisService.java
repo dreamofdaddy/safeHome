@@ -11,6 +11,8 @@ import com.safehome.backend.domain.property.PropertyRepository;
 import com.safehome.backend.domain.risk.dto.RiskAnalysisCreateRequest;
 import com.safehome.backend.domain.risk.dto.RiskAnalysisResponse;
 import com.safehome.backend.domain.risk.dto.RiskAnalysisUpdateRequest;
+import com.safehome.backend.domain.risk.dto.RiskFactorResponse;
+import com.safehome.backend.domain.risk.dto.SafetyAnalysisResponse;
 import com.safehome.backend.domain.registry.RegistrySnapshotRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,16 +25,19 @@ public class RiskAnalysisService {
 
     private final CodeService codeService;
     private final RiskAnalysisRepository riskAnalysisRepository;
+    private final RiskFactorRepository riskFactorRepository;
     private final PropertyRepository propertyRepository;
     private final RegistrySnapshotRepository registrySnapshotRepository;
 
     public RiskAnalysisService(
             RiskAnalysisRepository riskAnalysisRepository,
+            RiskFactorRepository riskFactorRepository,
             PropertyRepository propertyRepository,
             RegistrySnapshotRepository registrySnapshotRepository,
             CodeService codeService
     ) {
         this.riskAnalysisRepository = riskAnalysisRepository;
+        this.riskFactorRepository = riskFactorRepository;
         this.propertyRepository = propertyRepository;
         this.registrySnapshotRepository = registrySnapshotRepository;
         this.codeService = codeService;
@@ -50,6 +55,26 @@ public class RiskAnalysisService {
                 .orElseThrow(() -> new RiskAnalysisNotFoundException(id));
 
         return RiskAnalysisResponse.from(riskAnalysis);
+    }
+
+    public SafetyAnalysisResponse findResultById(Long id) {
+        RiskAnalysis analysis = riskAnalysisRepository.findById(id)
+                .orElseThrow(() -> new RiskAnalysisNotFoundException(id));
+
+        return new SafetyAnalysisResponse(
+                analysis.getId(),
+                analysis.getPropertyId(),
+                analysis.getRegistrySnapshotId(),
+                analysis.getAnalysisVersion(),
+                analysis.getPolicyVersion(),
+                analysis.getRiskLevel(),
+                analysis.getRiskScore(),
+                analysis.getAnalyzedAt(),
+                riskFactorRepository.findByRiskAnalysisIdOrderByIdAsc(id)
+                        .stream()
+                        .map(RiskFactorResponse::from)
+                        .toList()
+        );
     }
 
     public List<RiskAnalysisResponse> findByPropertyId(Long propertyId) {
