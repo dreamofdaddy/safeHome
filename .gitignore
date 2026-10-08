@@ -67,3 +67,4 @@ docker-compose.override.yml
 # Local data
 data/
 uploads/
+/property.json
