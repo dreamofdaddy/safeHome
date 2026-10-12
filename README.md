@@ -18,7 +18,7 @@ D:\projects\safeHome
 
 ## Project Structure
 
-\\\
+'''\\\
 safeHome/
 ├── ai/
 ├── backend/
@@ -31,7 +31,7 @@ safeHome/
 ├── .gitignore
 ├── docker-compose.yml
 └── README.md
-\\\
+\\\'''
 
 ## Architecture
 
