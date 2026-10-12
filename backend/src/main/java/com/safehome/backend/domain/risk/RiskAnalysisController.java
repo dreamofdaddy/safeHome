@@ -5,6 +5,7 @@ import com.safehome.backend.domain.risk.dto.RiskAnalysisCreateRequest;
 import com.safehome.backend.domain.risk.dto.RiskAnalysisResponse;
 import com.safehome.backend.domain.risk.dto.RiskAnalysisUpdateRequest;
 import com.safehome.backend.domain.risk.dto.SafetyAnalysisResponse;
+import com.safehome.backend.domain.risk.dto.RiskAnalysisComparisonResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,9 +18,15 @@ import java.util.List;
 public class RiskAnalysisController {
 
     private final RiskAnalysisService riskAnalysisService;
+    private final RiskAnalysisComparisonService riskAnalysisComparisonService;
 
-    public RiskAnalysisController(RiskAnalysisService riskAnalysisService) {
+    public RiskAnalysisController(
+            RiskAnalysisService riskAnalysisService,
+            RiskAnalysisComparisonService riskAnalysisComparisonService
+    ) {
         this.riskAnalysisService = riskAnalysisService;
+        this.riskAnalysisComparisonService =
+                riskAnalysisComparisonService;
     }
 
     @GetMapping
@@ -89,5 +96,19 @@ public class RiskAnalysisController {
         riskAnalysisService.delete(id);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/property/{propertyId}/comparison")
+    public ResponseEntity<
+            ApiResponse<RiskAnalysisComparisonResponse>
+            > compareLatestByPropertyId(
+            @PathVariable Long propertyId
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        riskAnalysisComparisonService
+                                .compareLatest(propertyId)
+                )
+        );
     }
 }

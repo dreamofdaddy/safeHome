@@ -2,6 +2,7 @@ package com.safehome.backend.domain.registry;
 
 import com.safehome.backend.common.response.ApiResponse;
 import com.safehome.backend.domain.registry.dto.RegistrySnapshotCreateRequest;
+import com.safehome.backend.domain.registry.dto.RegistrySnapshotComparisonResponse;
 import com.safehome.backend.domain.registry.dto.RegistrySnapshotResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -19,12 +20,16 @@ import java.util.List;
 @RequestMapping("/api/registry-snapshots")
 public class RegistrySnapshotController {
 
+    private final RegistrySnapshotComparisonService registrySnapshotComparisonService;
     private final RegistrySnapshotService registrySnapshotService;
 
     public RegistrySnapshotController(
-            RegistrySnapshotService registrySnapshotService
+            RegistrySnapshotService registrySnapshotService,
+            RegistrySnapshotComparisonService registrySnapshotComparisonService
     ) {
         this.registrySnapshotService = registrySnapshotService;
+        this.registrySnapshotComparisonService =
+                registrySnapshotComparisonService;
     }
 
     @PostMapping
@@ -82,5 +87,19 @@ public class RegistrySnapshotController {
         return ResponseEntity.ok(ApiResponse.success(
                 RegistrySnapshotResponse.from(registrySnapshotService.findLatestByPropertyId(propertyId))
         ));
+    }
+
+    @GetMapping("/property/{propertyId}/comparison")
+    public ResponseEntity<
+            ApiResponse<RegistrySnapshotComparisonResponse>
+            > compareLatestByPropertyId(
+            @PathVariable Long propertyId
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        registrySnapshotComparisonService
+                                .compareLatest(propertyId)
+                )
+        );
     }
 }

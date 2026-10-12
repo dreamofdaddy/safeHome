@@ -91,7 +91,7 @@ public class PropertySafetySummaryService {
 
         // 3. 최신 등기부 스냅샷
         RegistrySnapshot latestSnapshot = registrySnapshotRepository
-                .findTopByPropertyIdOrderByObservedAtDesc(propertyId)
+                .findTopByPropertyIdOrderByObservedAtDescIdDesc(propertyId)
                 .orElse(null);
 
         RegistrySnapshotResponse latestRegistrySnapshot =
@@ -111,7 +111,7 @@ public class PropertySafetySummaryService {
 
         // 5. 최신 Risk Analysis
         RiskAnalysis latestRiskAnalysisEntity = riskAnalysisRepository
-                .findTopByPropertyIdOrderByAnalyzedAtDesc(propertyId)
+                .findTopByPropertyIdOrderByAnalyzedAtDescIdDesc(propertyId)
                 .orElse(null);
 
         RiskAnalysisResponse latestRiskAnalysis =

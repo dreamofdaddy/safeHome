@@ -88,7 +88,7 @@ public class SafetyAnalysisService {
 
         RegistrySnapshot snapshot =
                 registrySnapshotRepository
-                        .findTopByPropertyIdOrderByObservedAtDesc(propertyId)
+                        .findTopByPropertyIdOrderByObservedAtDescIdDesc(propertyId)
                         .orElseThrow(() ->
                                 new RegistrySnapshotNotFoundException(propertyId)
                         );

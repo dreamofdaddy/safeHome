@@ -42,12 +42,15 @@ public class RegistrySnapshotService {
     }
 
     public List<RegistrySnapshot> findByPropertyId(Long propertyId) {
-        return registrySnapshotRepository.findByPropertyId(propertyId);
+        return registrySnapshotRepository
+                .findByPropertyIdOrderByObservedAtDescIdDesc(
+                        propertyId
+                );
     }
 
     public RegistrySnapshot findLatestByPropertyId(Long propertyId) {
         return registrySnapshotRepository
-                .findTopByPropertyIdOrderByObservedAtDesc(propertyId)
+                .findTopByPropertyIdOrderByObservedAtDescIdDesc(propertyId)
                 .orElseThrow(() ->
                         new BusinessException(ErrorCode.RESOURCE_NOT_FOUND)
                 );

@@ -82,7 +82,7 @@ public class RiskAnalysisService {
                 .orElseThrow(() -> new PropertyNotFoundException(propertyId));
 
         return riskAnalysisRepository
-                .findByPropertyIdOrderByAnalyzedAtDesc(propertyId)
+                .findByPropertyIdOrderByAnalyzedAtDescIdDesc(propertyId)
                 .stream()
                 .map(RiskAnalysisResponse::from)
                 .toList();
@@ -93,7 +93,7 @@ public class RiskAnalysisService {
                 .orElseThrow(() -> new PropertyNotFoundException(propertyId));
 
         RiskAnalysis riskAnalysis = riskAnalysisRepository
-                .findTopByPropertyIdOrderByAnalyzedAtDesc(propertyId)
+                .findTopByPropertyIdOrderByAnalyzedAtDescIdDesc(propertyId)
                 .orElseThrow(() -> new RiskAnalysisNotFoundException(propertyId));
 
         return RiskAnalysisResponse.from(riskAnalysis);

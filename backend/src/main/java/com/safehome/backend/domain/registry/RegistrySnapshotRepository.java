@@ -8,9 +8,18 @@ import java.util.Optional;
 public interface RegistrySnapshotRepository
         extends JpaRepository<RegistrySnapshot, Long> {
 
-    List<RegistrySnapshot> findByPropertyId(Long propertyId);
+    List<RegistrySnapshot>
+    findByPropertyIdOrderByObservedAtDescIdDesc(
+            Long propertyId
+    );
 
-    Optional<RegistrySnapshot> findTopByPropertyIdOrderByObservedAtDesc(
+    Optional<RegistrySnapshot>
+    findTopByPropertyIdOrderByObservedAtDescIdDesc(
+            Long propertyId
+    );
+
+    List<RegistrySnapshot>
+    findTop2ByPropertyIdOrderByObservedAtDescIdDesc(
             Long propertyId
     );
 }
