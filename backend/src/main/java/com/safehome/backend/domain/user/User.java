@@ -29,6 +29,9 @@ public class User {
     @Column(name = "email", nullable = false, length = 255)
     private String email;
 
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
@@ -82,6 +85,14 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public Long getId() {
         return id;
     }
@@ -114,17 +125,4 @@ public class User {
         return updatedAt;
     }
 
-    public void update(
-            String email,
-            String name,
-            String phone,
-            String verificationStatus,
-            String status
-    ) {
-        this.email = email;
-        this.name = name;
-        this.phone = phone;
-        this.verificationStatus = verificationStatus;
-        this.status = status;
-    }
 }

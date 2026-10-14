@@ -83,41 +83,38 @@ public class SafetyAnalysisService {
 
     @Transactional
     public SafetyAnalysisResponse analyze(Long propertyId) {
-
         validateProperty(propertyId);
+        RegistrySnapshot snapshot = registrySnapshotRepository
+            .findTopByPropertyIdOrderByObservedAtDescIdDesc(propertyId)
+            .orElseThrow(() -> new RegistrySnapshotNotFoundException(propertyId));
+        Contract contract = contractRepository
+            .findTopByPropertyIdAndStatusOrderByStartDateDesc(propertyId,
+                CommonCodes.CONTRACT_STATUS_ACTIVE).orElse(null);
+        Listing listing = contract == null || contract.getListingId() == null ? null
+            : listingRepository.findById(contract.getListingId()).orElse(null);
+        return analyze(propertyId, snapshot, listing, contract);
+    }
 
-        RegistrySnapshot snapshot =
-                registrySnapshotRepository
-                        .findTopByPropertyIdOrderByObservedAtDescIdDesc(propertyId)
-                        .orElseThrow(() ->
-                                new RegistrySnapshotNotFoundException(propertyId)
-                        );
-
-        List<RegistryRight> registryRights =
-                registryRightRepository
-                        .findByRegistrySnapshotIdAndStatus(
-                                snapshot.getId(),
-                                CommonCodes.REGISTRY_RIGHT_STATUS_ACTIVE
-                        );
-
-        List<PropertyOwner> propertyOwners =
-                propertyOwnerRepository.findByPropertyId(propertyId);
-
-        Contract contract =
-                contractRepository
-                        .findTopByPropertyIdAndStatusOrderByStartDateDesc(
-                                propertyId,
-                                CommonCodes.CONTRACT_STATUS_ACTIVE
-                        )
-                        .orElse(null);
-
-        Listing listing = null;
-
-        if (contract != null && contract.getListingId() != null) {
-            listing = listingRepository
-                    .findById(contract.getListingId())
-                    .orElse(null);
+    @Transactional
+    public SafetyAnalysisResponse analyzeForListing(Listing listing, Long registrySnapshotId) {
+        if (listing == null || listing.getPropertyId() == null || registrySnapshotId == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
+        Long propertyId = listing.getPropertyId();
+        validateProperty(propertyId);
+        RegistrySnapshot snapshot = registrySnapshotRepository.findById(registrySnapshotId)
+            .orElseThrow(() -> new RegistrySnapshotNotFoundException(registrySnapshotId));
+        if (!propertyId.equals(snapshot.getProperty().getId())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        return analyze(propertyId, snapshot, listing, null);
+    }
+
+    private SafetyAnalysisResponse analyze(Long propertyId, RegistrySnapshot snapshot,
+            Listing listing, Contract contract) {
+        List<RegistryRight> registryRights = registryRightRepository
+            .findByRegistrySnapshotIdAndStatus(snapshot.getId(), CommonCodes.REGISTRY_RIGHT_STATUS_ACTIVE);
+        List<PropertyOwner> propertyOwners = propertyOwnerRepository.findByRegistrySnapshotId(snapshot.getId());
 
         String policyVersion =
                 riskPolicyVersionService.getActivePolicyVersion();

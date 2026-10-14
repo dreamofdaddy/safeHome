@@ -2,6 +2,7 @@ package com.safehome.backend.domain.risk;
 
 import com.safehome.backend.common.code.CommonCodes;
 import com.safehome.backend.common.exception.BusinessException;
+import com.safehome.backend.domain.property.OwnerIdentityService;
 import com.safehome.backend.domain.risk.dto.SafetyAnalysisResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,9 @@ class SafetyAnalysisServiceIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private OwnerIdentityService ownerIdentityService;
 
     @Test
     void shouldReturnLowRiskWhenNoActiveRiskDataExists() {
@@ -214,40 +218,23 @@ class SafetyAnalysisServiceIntegrationTest {
             3L
         );
 
-        // 임시 공동소유자 생성
-        String email = "safehome.coowner.test@example.com";
-
-        jdbcTemplate.update("""
-            INSERT INTO users (
-                email,
-                name
-            )
-            VALUES (?, ?)
-            """,
-            email,
-            "Co Owner Test"
-        );
-
-        Long coOwnerUserId = jdbcTemplate.queryForObject("""
-            SELECT id
-            FROM users
-            WHERE email = ?
-            """,
-            Long.class,
-            email
-        );
-
         // Property #5에 두 번째 공동소유자 30% 추가
         jdbcTemplate.update("""
             INSERT INTO property_owners (
                 property_id,
-                user_id,
+                registry_snapshot_id,
+                owner_name,
+                owner_rrn_encrypted,
+                owner_rrn_birth6_hash,
                 ownership_ratio
             )
-            VALUES (?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             5L,
-            coOwnerUserId,
+            2L,
+            "Co Owner Test",
+            ownerIdentityService.encryptMaskedIdentifier("700101-*******"),
+            ownerIdentityService.hashBirth6("700101-*******"),
             new BigDecimal("30.00")
         );
 
@@ -281,7 +268,26 @@ class SafetyAnalysisServiceIntegrationTest {
     }
 
     @Test
-    void shouldCalculateMediumRiskFromOwnershipMismatch() {
+    void shouldIgnoreOwnersFromOlderRegistrySnapshot() {
+        jdbcTemplate.update("""
+            UPDATE registry_rights SET status = ? WHERE registry_snapshot_id = ?
+            """, CommonCodes.REGISTRY_RIGHT_STATUS_INACTIVE, 2L);
+        jdbcTemplate.update("""
+            INSERT INTO property_owners
+                (property_id, registry_snapshot_id, owner_name,
+                 owner_rrn_encrypted, owner_rrn_birth6_hash, ownership_ratio)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, 5L, 1L, "Former Owner",
+                ownerIdentityService.encryptMaskedIdentifier("650101-*******"),
+                ownerIdentityService.hashBirth6("650101-*******"),
+                new BigDecimal("100.00"));
+
+        SafetyAnalysisResponse response = safetyAnalysisService.analyze(5L);
+        assertThat(response.factors()).isEmpty();
+    }
+
+    @Test
+    void shouldNotInferOwnershipMismatchFromLegacyUserIds() {
         // Registry 위험 요소 제거
         jdbcTemplate.update("""
             UPDATE registry_rights
@@ -335,25 +341,11 @@ class SafetyAnalysisServiceIntegrationTest {
                 .isEqualTo("V2");
 
         assertThat(response.riskLevel())
-                .isEqualTo(CommonCodes.RISK_LEVEL_MEDIUM);
+                .isEqualTo(CommonCodes.RISK_LEVEL_LOW);
 
         assertThat(response.riskScore())
-                .isEqualByComparingTo("25.00");
+                .isEqualByComparingTo("0.00");
 
-        assertThat(response.factors())
-                .hasSize(1);
-
-        assertThat(response.factors())
-                .anySatisfy(factor -> {
-                    assertThat(factor.factorType())
-                            .isEqualTo(
-                                    CommonCodes.RISK_FACTOR_TYPE_OWNERSHIP_MISMATCH);
-
-                    assertThat(factor.severity())
-                            .isEqualTo(CommonCodes.RISK_SEVERITY_HIGH);
-
-                    assertThat(factor.score())
-                            .isEqualByComparingTo("25.00");
-                });
+        assertThat(response.factors()).isEmpty();
     }
 }

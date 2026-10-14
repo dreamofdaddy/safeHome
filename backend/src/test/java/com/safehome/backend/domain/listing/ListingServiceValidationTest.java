@@ -2,38 +2,27 @@ package com.safehome.backend.domain.listing;
 
 import com.safehome.backend.common.code.CodeService;
 import com.safehome.backend.common.exception.BusinessException;
-import com.safehome.backend.domain.listing.dto.ListingCreateRequest;
-import com.safehome.backend.domain.property.Property;
+import com.safehome.backend.domain.document.dto.ListingRegistrationRequest;
 import com.safehome.backend.domain.property.PropertyRepository;
-import com.safehome.backend.domain.user.User;
 import com.safehome.backend.domain.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import java.math.BigDecimal;
-import java.util.Optional;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
 
 class ListingServiceValidationTest {
 
-    @Mock
-    private ListingRepository listingRepository;
-
-    @Mock
-    private PropertyRepository propertyRepository;
-
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private CodeService codeService;
+    @Mock private ListingRepository listingRepository;
+    @Mock private PropertyRepository propertyRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private CodeService codeService;
 
     private ListingService listingService;
 
@@ -41,78 +30,70 @@ class ListingServiceValidationTest {
     void setUp() {
         openMocks(this);
         listingService = new ListingService(
-                listingRepository,
-                propertyRepository,
-                userRepository,
-                codeService
-        );
-
-        when(propertyRepository.findById(1L))
-                .thenReturn(Optional.of(mock(Property.class)));
-        when(userRepository.findById(1L))
-                .thenReturn(Optional.of(mock(User.class)));
+                listingRepository, propertyRepository, userRepository, codeService);
         when(codeService.getRequiredActiveCode(anyString(), anyString()))
                 .thenAnswer(invocation -> invocation.getArgument(1));
     }
 
     @Test
     void shouldRejectNegativeAmount() {
-        ListingCreateRequest request = baseRequest();
-        request.setDepositAmount(new BigDecimal("-1"));
-
-        assertThatThrownBy(() -> listingService.create(request))
+        ListingRegistrationRequest request = request(
+                "JEONSE", new BigDecimal("-1"), null, null, listedAt(), expiredAt());
+        assertThatThrownBy(() -> listingService.createPendingAnalysis(1L, request))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void shouldRejectJeonseWithoutDeposit() {
-        ListingCreateRequest request = baseRequest();
-        request.setTransactionType("JEONSE");
-        request.setDepositAmount(null);
-
-        assertThatThrownBy(() -> listingService.create(request))
+        ListingRegistrationRequest request = request(
+                "JEONSE", null, null, null, listedAt(), expiredAt());
+        assertThatThrownBy(() -> listingService.createPendingAnalysis(1L, request))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void shouldRejectMonthlyRentWithoutMonthlyRent() {
-        ListingCreateRequest request = baseRequest();
-        request.setTransactionType("MONTHLY_RENT");
-        request.setDepositAmount(new BigDecimal("50000000"));
-        request.setMonthlyRent(null);
-
-        assertThatThrownBy(() -> listingService.create(request))
+        ListingRegistrationRequest request = request(
+                "MONTHLY_RENT", new BigDecimal("50000000"), null, null, listedAt(), expiredAt());
+        assertThatThrownBy(() -> listingService.createPendingAnalysis(1L, request))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void shouldRejectSaleWithoutSalePrice() {
-        ListingCreateRequest request = baseRequest();
-        request.setTransactionType("SALE");
-        request.setSalePrice(null);
-
-        assertThatThrownBy(() -> listingService.create(request))
+        ListingRegistrationRequest request = request(
+                "SALE", null, null, null, listedAt(), expiredAt());
+        assertThatThrownBy(() -> listingService.createPendingAnalysis(1L, request))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void shouldRejectExpiredListingBeforeListedAt() {
-        ListingCreateRequest request = baseRequest();
-        request.setExpiredAt(request.getListedAt().minusHours(1));
-
-        assertThatThrownBy(() -> listingService.create(request))
+        ListingRegistrationRequest request = request(
+                "JEONSE", new BigDecimal("300000000"), null, null,
+                listedAt(), listedAt().minusHours(1));
+        assertThatThrownBy(() -> listingService.createPendingAnalysis(1L, request))
                 .isInstanceOf(BusinessException.class);
     }
 
-    private ListingCreateRequest baseRequest() {
-        ListingCreateRequest request = new ListingCreateRequest();
-        request.setPropertyId(1L);
-        request.setSellerUserId(1L);
-        request.setTransactionType("JEONSE");
-        request.setDepositAmount(new BigDecimal("300000000"));
-        request.setStatus("ACTIVE");
-        request.setListedAt(java.time.LocalDateTime.of(2026, 10, 1, 10, 0));
-        request.setExpiredAt(java.time.LocalDateTime.of(2026, 12, 31, 23, 59));
-        return request;
+    private ListingRegistrationRequest request(
+            String transactionType,
+            BigDecimal depositAmount,
+            BigDecimal monthlyRent,
+            BigDecimal salePrice,
+            LocalDateTime listedAt,
+            LocalDateTime expiredAt) {
+        return new ListingRegistrationRequest(
+                "서울특별시 중구 세종대로 110", null, "테스트 건물", "APARTMENT",
+                "101호", null, transactionType, depositAmount, monthlyRent, salePrice,
+                listedAt, expiredAt);
+    }
+
+    private LocalDateTime listedAt() {
+        return LocalDateTime.of(2026, 10, 1, 10, 0);
+    }
+
+    private LocalDateTime expiredAt() {
+        return LocalDateTime.of(2026, 12, 31, 23, 59);
     }
 }

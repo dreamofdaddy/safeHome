@@ -1,0 +1,27 @@
+-- Test-only seed for the legacy integration scenarios; applied after V11.
+INSERT INTO public.users (id, email, name, phone, verification_status, status, created_at, updated_at) VALUES (1, 'safehome.owner.test@example.com', 'Test Owner', '010-1111-2222', 'UNVERIFIED', 'ACTIVE', '2026-09-29 06:15:44.924697', '2026-09-29 06:15:44.924697');
+INSERT INTO public.properties (id, registry_property_number, address, road_address, building_name, building_type, unit_number, postal_code, created_at, updated_at) VALUES (5, '1413-1996-141271', '서울특별시 강남구 테헤란로 789', '서울특별시 강남구 테헤란로 789', 'SafeHome Owner Test', 'APARTMENT', '101동 101호', '06236', '2026-09-29 15:16:28.50359', '2026-09-29 15:16:28.50359');
+INSERT INTO public.listings (id, property_id, registered_by_user_id, transaction_type, deposit_amount, monthly_rent, sale_price, status, listed_at, expired_at, created_at, updated_at) VALUES (2, 5, 1, 'JEONSE', 200000000, 0, 0, 'ACTIVE', '2026-10-02 11:00:00', NULL, '2026-10-02 11:08:02.444962', '2026-10-02 11:08:02.444962');
+INSERT INTO public.registry_snapshots (id, property_id, source, observed_at, document_hash, created_at) VALUES (1, 5, 'TEST', '2026-09-28 10:00:00', 'hash-001', '2026-09-29 17:17:14.528263');
+INSERT INTO public.registry_snapshots (id, property_id, source, observed_at, document_hash, created_at) VALUES (2, 5, 'TEST', '2026-09-29 10:00:00', 'hash-002', '2026-09-29 17:17:59.416246');
+INSERT INTO public.registry_rights (id, registry_snapshot_id, right_type, holder_name, amount, priority, registered_at, status, created_at) VALUES (1, 2, 'MORTGAGE', 'Test Bank', 300000000, 1, '2026-09-29 09:00:00', 'ACTIVE', '2026-09-30 11:04:16.706956');
+INSERT INTO public.registry_rights (id, registry_snapshot_id, right_type, holder_name, amount, priority, registered_at, status, created_at) VALUES (2, 2, 'LEASEHOLD', 'Test Tenant', 200000000, 2, '2026-09-29 09:30:00', 'ACTIVE', '2026-09-30 11:04:42.170746');
+INSERT INTO public.property_owners (id, property_id, registry_snapshot_id, owner_name, owner_rrn_encrypted, owner_rrn_birth6_hash, ownership_ratio, registered_at, verified_at, created_at, updated_at) VALUES (1, 5, 2, 'Test Owner', pgp_sym_encrypt('671205-*******', 'local-test-only-encryption-key-1234567890', 'cipher-algo=aes256'), '28f719ea0d324963481f0fdf58582f00f923eb163840b974c62f774ba85fa8d0', 70.00, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+INSERT INTO public.contracts (id, property_id, listing_id, landlord_user_id, tenant_user_id, contract_type, deposit_amount, monthly_rent, start_date, end_date, status, signed_at, created_at, updated_at) VALUES (3, 5, 2, 1, 1, 'JEONSE', 200000000, 0, '2026-10-02', '2027-10-01', 'ACTIVE', NULL, '2026-10-02 11:22:16.385834', '2026-10-02 11:22:16.385834');
+INSERT INTO public.contract_special_terms (id, contract_id, term_type, content, sequence, created_at, updated_at) VALUES (3, 3, 'PAYMENT', '계약금 및 잔금 지급일은 별도 약정에 따른다.', 1, '2026-10-02 12:06:40.024369', '2026-10-02 12:06:40.024369');
+INSERT INTO public.risk_analyses (id, property_id, registry_snapshot_id, analysis_version, risk_level, risk_score, analyzed_at, created_at, policy_version) VALUES (1, 5, 2, 'v1.0', 'HIGH', 75.50, '2026-09-30 10:00:00', '2026-09-30 14:13:24.2631', NULL);
+INSERT INTO public.risk_analyses (id, property_id, registry_snapshot_id, analysis_version, risk_level, risk_score, analyzed_at, created_at, policy_version) VALUES (11, 5, 2, '1.0', 'LOW', 0.00, '2026-10-06 15:45:52.025853', '2026-10-06 15:45:52.029859', 'V2');
+INSERT INTO public.risk_analyses (id, property_id, registry_snapshot_id, analysis_version, risk_level, risk_score, analyzed_at, created_at, policy_version) VALUES (12, 5, 2, '1.0', 'HIGH', 50.00, '2026-10-06 16:01:58.890926', '2026-10-06 16:01:58.890926', 'V2');
+INSERT INTO public.risk_factors (id, risk_analysis_id, factor_type, severity, value, description, created_at, score) VALUES (1, 1, 'MORTGAGE', 'HIGH', '300000000', '근저당권 설정금액이 확인되었습니다.', '2026-09-30 15:39:48.424094', NULL);
+INSERT INTO public.risk_factors (id, risk_analysis_id, factor_type, severity, value, description, created_at, score) VALUES (3, 12, 'MORTGAGE', 'HIGH', '300000000', '활성 근저당권이 존재합니다.', '2026-10-06 16:01:58.89459', 30.00);
+INSERT INTO public.risk_factors (id, risk_analysis_id, factor_type, severity, value, description, created_at, score) VALUES (4, 12, 'PRIORITY_RIGHT', 'HIGH', '2', '현재 계약보다 먼저 등기된 선순위 권리가 존재합니다. 권리자: Test Tenant', '2026-10-06 16:01:58.912495', 20.00);
+SELECT pg_catalog.setval('public.contract_special_terms_id_seq', 3, true);
+SELECT pg_catalog.setval('public.contracts_id_seq', 3, true);
+SELECT pg_catalog.setval('public.listings_id_seq', 2, true);
+SELECT pg_catalog.setval('public.properties_id_seq', 6, true);
+SELECT pg_catalog.setval('public.property_owners_id_seq', 36, true);
+SELECT pg_catalog.setval('public.registry_rights_id_seq', 324, true);
+SELECT pg_catalog.setval('public.registry_snapshots_id_seq', 478, true);
+SELECT pg_catalog.setval('public.risk_analyses_id_seq', 941, true);
+SELECT pg_catalog.setval('public.risk_factors_id_seq', 590, true);
+SELECT pg_catalog.setval('public.users_id_seq', 70, true);

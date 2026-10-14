@@ -6,6 +6,10 @@ import jakarta.validation.constraints.Size;
 public record PropertyCreateRequest(
 
     @NotBlank
+    @Size(max = 50)
+    String registryPropertyNumber,
+
+    @NotBlank
     @Size(max = 500)
     String address,
 

@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 
 public record PropertyResponse(
     Long id,
+    String registryPropertyNumber,
     String address,
     String roadAddress,
     String buildingName,
@@ -19,6 +20,7 @@ public record PropertyResponse(
     public static PropertyResponse from(Property property) {
         return new PropertyResponse(
             property.getId(),
+            property.getRegistryPropertyNumber(),
             property.getAddress(),
             property.getRoadAddress(),
             property.getBuildingName(),

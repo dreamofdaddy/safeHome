@@ -32,32 +32,14 @@ public class CoOwnerIssueRiskRule implements RiskRule {
             return List.of();
         }
 
-        Long landlordUserId = contract.getLandlordUserId();
-
-        // 임대인이 없는 계약은 OwnershipMismatch 등 다른 Rule에서 판단
-        if (landlordUserId == null) {
-            return List.of();
-        }
-
-        boolean landlordIsOwner = propertyOwners.stream()
-                .map(PropertyOwner::getUser)
-                .map(user -> user.getId())
-                .anyMatch(landlordUserId::equals);
-
-        // 임대인이 소유자도 아니면 OwnershipMismatch의 책임
-        if (!landlordIsOwner) {
-            return List.of();
-        }
-
         BigDecimal totalOwnershipRatio = propertyOwners.stream()
                 .map(PropertyOwner::getOwnershipRatio)
                 .filter(ratio -> ratio != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         /*
-         * 공동소유인데 현재 계약에는 임대인 1명만 존재한다.
-         * 따라서 다른 공동소유자의 계약 관여/동의 여부를
-         * 현재 데이터 모델로 확인할 수 없으므로 경고를 발생시킨다.
+         * 현재 계약 모델은 공동소유자 전원의 동의 여부를 표현하지 못한다.
+         * 계약상 임대인 User ID로 등기상 소유자를 판정하지 않는다.
          *
          * ownershipRatio 합계가 100인지는 별도 데이터 품질 검증 대상이며,
          * 여기서는 CO_OWNER_ISSUE 판단과 분리한다.

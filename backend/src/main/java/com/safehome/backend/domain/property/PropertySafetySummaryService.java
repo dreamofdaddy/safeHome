@@ -82,17 +82,16 @@ public class PropertySafetySummaryService {
                         CommonCodes.LISTING_STATUS_ACTIVE
                 );
 
-        // 2. 소유자
-        List<PropertyOwnerResponse> owners =
-        propertyOwnerRepository.findByPropertyId(propertyId)
-                .stream()
-                .map(PropertyOwnerResponse::from)
-                .toList();
-
-        // 3. 최신 등기부 스냅샷
+        // 2. 최신 등기부 스냅샷
         RegistrySnapshot latestSnapshot = registrySnapshotRepository
                 .findTopByPropertyIdOrderByObservedAtDescIdDesc(propertyId)
                 .orElse(null);
+
+        // 3. 이 스냅샷에서 확인된 소유자만 표시한다.
+        List<PropertyOwnerResponse> owners = latestSnapshot == null
+                ? List.of()
+                : propertyOwnerRepository.findByRegistrySnapshotId(latestSnapshot.getId())
+                        .stream().map(PropertyOwnerResponse::from).toList();
 
         RegistrySnapshotResponse latestRegistrySnapshot =
                 latestSnapshot == null

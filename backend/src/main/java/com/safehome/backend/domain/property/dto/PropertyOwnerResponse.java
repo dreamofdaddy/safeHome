@@ -8,22 +8,19 @@ import java.time.LocalDateTime;
 public record PropertyOwnerResponse(
         Long id,
         Long propertyId,
-        Long userId,
+        Long registrySnapshotId,
+        String ownerName,
         BigDecimal ownershipRatio,
+        LocalDateTime registeredAt,
         LocalDateTime verifiedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
-
-    public static PropertyOwnerResponse from(PropertyOwner propertyOwner) {
+    public static PropertyOwnerResponse from(PropertyOwner owner) {
         return new PropertyOwnerResponse(
-                propertyOwner.getId(),
-                propertyOwner.getProperty().getId(),
-                propertyOwner.getUser().getId(),
-                propertyOwner.getOwnershipRatio(),
-                propertyOwner.getVerifiedAt(),
-                propertyOwner.getCreatedAt(),
-                propertyOwner.getUpdatedAt()
-        );
+                owner.getId(), owner.getProperty().getId(),
+                owner.getRegistrySnapshot().getId(), owner.getOwnerName(),
+                owner.getOwnershipRatio(), owner.getRegisteredAt(),
+                owner.getVerifiedAt(), owner.getCreatedAt(), owner.getUpdatedAt());
     }
 }

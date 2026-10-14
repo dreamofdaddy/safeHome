@@ -5,6 +5,8 @@ import com.safehome.backend.common.response.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -71,6 +73,16 @@ public class GlobalExceptionHandler {
         );
 
         return createErrorResponse(ErrorCode.RESOURCE_NOT_FOUND);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<ErrorResponse>> handleTooLarge(MaxUploadSizeExceededException exception) {
+        return createErrorResponse(ErrorCode.PAYLOAD_TOO_LARGE);
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiResponse<ErrorResponse>> handleMissingPart(MissingServletRequestPartException exception) {
+        return createErrorResponse(ErrorCode.INVALID_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)

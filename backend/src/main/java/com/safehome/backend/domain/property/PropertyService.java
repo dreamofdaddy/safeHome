@@ -39,12 +39,23 @@ public class PropertyService {
         return PropertyResponse.from(property);
     }
 
+    public PropertyResponse findByRegistryPropertyNumber(String number) {
+        if (number == null || number.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        return propertyRepository.findByRegistryPropertyNumber(number.trim())
+            .map(PropertyResponse::from)
+            .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+    }
+
     @Transactional
     public PropertyResponse create(PropertyCreateRequest request) {
 
         validateBuildingType(request.buildingType());
+        validateRegistryPropertyNumber(request.registryPropertyNumber(), null);
         
         Property property = new Property(
+            request.registryPropertyNumber().trim(),
             request.address(),
             request.roadAddress(),
             request.buildingName(),
@@ -66,8 +77,10 @@ public class PropertyService {
         Property property = getProperty(id);
 
         validateBuildingType(request.buildingType());
+        validateRegistryPropertyNumber(request.registryPropertyNumber(), id);
 
         property.update(
+            request.registryPropertyNumber().trim(),
             request.address(),
             request.roadAddress(),
             request.buildingName(),
@@ -94,6 +107,17 @@ public class PropertyService {
             "PROPERTY_TYPE",
             buildingType
         );
+    }
+
+    private void validateRegistryPropertyNumber(String number, Long currentId) {
+        if (number == null || number.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        if (propertyRepository.findByRegistryPropertyNumber(number.trim())
+                .filter(existing -> !existing.getId().equals(currentId))
+                .isPresent()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
     }
 
     private Property getProperty(Long id) {

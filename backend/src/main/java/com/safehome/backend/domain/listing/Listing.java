@@ -13,11 +13,27 @@ public class Listing {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "property_id", nullable = false)
+    @Column(name = "property_id")
     private Long propertyId;
 
-    @Column(name = "seller_user_id", nullable = false)
-    private Long sellerUserId;
+    @Column(name = "risk_analysis_id")
+    private Long riskAnalysisId;
+
+    @Column(name = "registered_by_user_id", nullable = false)
+    private Long registeredByUserId;
+
+    @Column(name = "listing_address", length = 500)
+    private String listingAddress;
+    @Column(name = "road_address", length = 500)
+    private String roadAddress;
+    @Column(name = "building_name", length = 200)
+    private String buildingName;
+    @Column(name = "building_type", length = 50)
+    private String buildingType;
+    @Column(name = "unit_number", length = 100)
+    private String unitNumber;
+    @Column(name = "postal_code", length = 20)
+    private String postalCode;
 
     @Column(name = "transaction_type", nullable = false, length = 30)
     private String transactionType;
@@ -51,7 +67,7 @@ public class Listing {
 
     public Listing(
             Long propertyId,
-            Long sellerUserId,
+            Long registeredByUserId,
             String transactionType,
             BigDecimal depositAmount,
             BigDecimal monthlyRent,
@@ -61,7 +77,7 @@ public class Listing {
             LocalDateTime expiredAt
     ) {
         this.propertyId = propertyId;
-        this.sellerUserId = sellerUserId;
+        this.registeredByUserId = registeredByUserId;
         this.transactionType = transactionType;
         this.depositAmount = depositAmount;
         this.monthlyRent = monthlyRent;
@@ -69,6 +85,21 @@ public class Listing {
         this.status = status;
         this.listedAt = listedAt;
         this.expiredAt = expiredAt;
+    }
+
+    public static Listing pendingAnalysis(Long userId, String address, String roadAddress,
+            String buildingName, String buildingType, String unitNumber, String postalCode,
+            String transactionType, BigDecimal depositAmount, BigDecimal monthlyRent,
+            BigDecimal salePrice, LocalDateTime listedAt, LocalDateTime expiredAt) {
+        Listing listing = new Listing(null, userId, transactionType, depositAmount, monthlyRent,
+            salePrice, "READY_FOR_ANALYSIS", listedAt, expiredAt);
+        listing.listingAddress = address;
+        listing.roadAddress = roadAddress;
+        listing.buildingName = buildingName;
+        listing.buildingType = buildingType;
+        listing.unitNumber = unitNumber;
+        listing.postalCode = postalCode;
+        return listing;
     }
 
     @PrePersist
@@ -97,12 +128,23 @@ public class Listing {
         return id;
     }
 
+    public String getListingAddress() { return listingAddress; }
+    public String getRoadAddress() { return roadAddress; }
+    public String getBuildingName() { return buildingName; }
+    public String getBuildingType() { return buildingType; }
+    public String getUnitNumber() { return unitNumber; }
+    public String getPostalCode() { return postalCode; }
+
     public Long getPropertyId() {
         return propertyId;
     }
 
-    public Long getSellerUserId() {
-        return sellerUserId;
+    public Long getRiskAnalysisId() {
+        return riskAnalysisId;
+    }
+
+    public Long getRegisteredByUserId() {
+        return registeredByUserId;
     }
 
     public String getTransactionType() {
@@ -139,6 +181,22 @@ public class Listing {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public void markRegistryProcessing() {
+        status = "REGISTRY_PROCESSING"; updatedAt = LocalDateTime.now();
+    }
+    public void markRegistryParsed(Long propertyId) {
+        this.propertyId = propertyId; status = "REGISTRY_READY"; updatedAt = LocalDateTime.now();
+    }
+    public void markRegistryFailed() {
+        status = "REGISTRY_FAILED"; updatedAt = LocalDateTime.now();
+    }
+
+    public void markSafetyAnalyzed(Long riskAnalysisId) {
+        this.riskAnalysisId = riskAnalysisId;
+        status = "SAFETY_ANALYZED";
+        updatedAt = LocalDateTime.now();
     }
 
     public void update(

@@ -37,6 +37,9 @@ public class Property {
     @Column(name = "address", nullable = false, length = 500)
     private String address;
 
+    @Column(name = "registry_property_number", nullable = false, unique = true, length = 50)
+    private String registryPropertyNumber;
+
     @Column(name = "road_address", length = 500)
     private String roadAddress;
 
@@ -68,6 +71,7 @@ public class Property {
     }
 
     public Property(
+        String registryPropertyNumber,
         String address,
         String roadAddress,
         String buildingName,
@@ -75,6 +79,7 @@ public class Property {
         String unitNumber,
         String postalCode
     ) {
+        this.registryPropertyNumber = registryPropertyNumber;
         this.address = address;
         this.roadAddress = roadAddress;
         this.buildingName = buildingName;
@@ -101,6 +106,10 @@ public class Property {
 
     public String getAddress() {
         return address;
+    }
+
+    public String getRegistryPropertyNumber() {
+        return registryPropertyNumber;
     }
 
     public String getRoadAddress() {
@@ -136,6 +145,7 @@ public class Property {
     }
 
     public void update(
+        String registryPropertyNumber,
         String address,
         String roadAddress,
         String buildingName,
@@ -143,6 +153,7 @@ public class Property {
         String unitNumber,
         String postalCode
     ) {
+        this.registryPropertyNumber = registryPropertyNumber;
         this.address = address;
         this.roadAddress = roadAddress;
         this.buildingName = buildingName;

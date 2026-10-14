@@ -7,7 +7,6 @@ import com.safehome.backend.common.exception.ErrorCode;
 import com.safehome.backend.common.exception.ListingNotFoundException;
 import com.safehome.backend.common.exception.PropertyNotFoundException;
 import com.safehome.backend.common.exception.UserNotFoundException;
-import com.safehome.backend.domain.listing.dto.ListingCreateRequest;
 import com.safehome.backend.domain.listing.dto.ListingResponse;
 import com.safehome.backend.domain.listing.dto.ListingUpdateRequest;
 import com.safehome.backend.domain.property.PropertyRepository;
@@ -64,11 +63,11 @@ public class ListingService {
                 .toList();
     }
 
-    public List<ListingResponse> findBySellerUserId(Long sellerUserId) {
-        userRepository.findById(sellerUserId)
-                .orElseThrow(() -> new UserNotFoundException(sellerUserId));
+    public List<ListingResponse> findByRegisteredByUserId(Long registeredByUserId) {
+        userRepository.findById(registeredByUserId)
+                .orElseThrow(() -> new UserNotFoundException(registeredByUserId));
 
-        return listingRepository.findBySellerUserIdOrderByListedAtDesc(sellerUserId)
+        return listingRepository.findByRegisteredByUserIdOrderByListedAtDesc(registeredByUserId)
                 .stream()
                 .map(ListingResponse::from)
                 .toList();
@@ -85,40 +84,24 @@ public class ListingService {
     }
 
     @Transactional
-    public ListingResponse create(ListingCreateRequest request) {
+    public ListingResponse createPendingAnalysis(Long userId,
+            com.safehome.backend.domain.document.dto.ListingRegistrationRequest request) {
+        validateTransactionType(request.transactionType());
+        validateTransactionTerms(request.transactionType(), request.depositAmount(),
+            request.monthlyRent(), request.salePrice(), request.listedAt(), request.expiredAt());
+        codeService.getRequiredActiveCode("PROPERTY_TYPE", request.buildingType());
+        Listing listing = Listing.pendingAnalysis(userId, request.address().trim(), request.roadAddress(),
+            request.buildingName(), request.buildingType(), request.unitNumber(), request.postalCode(),
+            request.transactionType(), request.depositAmount(), request.monthlyRent(),
+            request.salePrice(), request.listedAt(), request.expiredAt());
+        return ListingResponse.from(listingRepository.save(listing));
+    }
 
-        propertyRepository.findById(request.getPropertyId())
-                .orElseThrow(() -> new PropertyNotFoundException(request.getPropertyId()));
-
-        userRepository.findById(request.getSellerUserId())
-                .orElseThrow(() -> new UserNotFoundException(request.getSellerUserId()));
-
-        validateTransactionType(request.getTransactionType());
-        validateStatus(request.getStatus());
-        validateTransactionTerms(
-                request.getTransactionType(),
-                request.getDepositAmount(),
-                request.getMonthlyRent(),
-                request.getSalePrice(),
-                request.getListedAt(),
-                request.getExpiredAt()
-        );
-        
-        Listing listing = new Listing(
-                request.getPropertyId(),
-                request.getSellerUserId(),
-                request.getTransactionType(),
-                request.getDepositAmount(),
-                request.getMonthlyRent(),
-                request.getSalePrice(),
-                request.getStatus(),
-                request.getListedAt(),
-                request.getExpiredAt()
-        );
-
-        Listing saved = listingRepository.save(listing);
-
-        return ListingResponse.from(saved);
+    public void assertOwner(Long listingId, Long userId) {
+        Listing listing = listingRepository.findById(listingId)
+            .orElseThrow(() -> new ListingNotFoundException(listingId));
+        if (!listing.getRegisteredByUserId().equals(userId))
+            throw new BusinessException(ErrorCode.FORBIDDEN);
     }
 
     @Transactional
@@ -126,6 +109,10 @@ public class ListingService {
 
         Listing listing = listingRepository.findById(id)
                 .orElseThrow(() -> new ListingNotFoundException(id));
+        if ("READY_FOR_ANALYSIS".equals(listing.getStatus())
+                && !"READY_FOR_ANALYSIS".equals(request.getStatus())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
 
         validateTransactionType(request.getTransactionType());
         validateStatus(request.getStatus());

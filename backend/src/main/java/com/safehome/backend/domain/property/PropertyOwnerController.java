@@ -35,11 +35,7 @@ public class PropertyOwnerController {
             @Valid @RequestBody PropertyOwnerCreateRequest request
     ) {
         PropertyOwner propertyOwner =
-                propertyOwnerService.create(
-                        request.propertyId(),
-                        request.userId(),
-                        request.ownershipRatio()
-                );
+                propertyOwnerService.create(request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -77,12 +73,12 @@ public class PropertyOwnerController {
         ));
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<ApiResponse<List<PropertyOwnerResponse>>> findByUserId(
-            @PathVariable Long userId
+    @GetMapping("/snapshot/{snapshotId}")
+    public ResponseEntity<ApiResponse<List<PropertyOwnerResponse>>> findByRegistrySnapshotId(
+            @PathVariable Long snapshotId
     ) {
         return ResponseEntity.ok(ApiResponse.success(
-                propertyOwnerService.findByUserId(userId)
+                propertyOwnerService.findByRegistrySnapshotId(snapshotId)
                         .stream()
                         .map(PropertyOwnerResponse::from)
                         .toList()
@@ -99,15 +95,6 @@ public class PropertyOwnerController {
                         propertyOwnerService.updateOwnershipRatio(id, request.ownershipRatio())
                 )
         ));
-    }
-
-    @PostMapping("/{id}/verify")
-    public ResponseEntity<Void> verify(
-            @PathVariable Long id
-    ) {
-        propertyOwnerService.verify(id);
-
-        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")

@@ -1,0 +1,11 @@
+package com.safehome.backend.domain.document;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+import java.util.Optional;
+
+public interface RegistryDocumentRepository extends JpaRepository<RegistryDocument, Long> {
+    List<RegistryDocument> findByUploadedByUserIdOrderByCreatedAtDesc(Long userId);
+    Optional<RegistryDocument> findTopByListingIdOrderByIdDesc(Long listingId);
+    List<RegistryDocument> findByStatus(String status);
+}

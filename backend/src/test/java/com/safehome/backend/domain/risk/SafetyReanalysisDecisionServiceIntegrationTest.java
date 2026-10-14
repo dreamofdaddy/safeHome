@@ -105,6 +105,10 @@ class SafetyReanalysisDecisionServiceIntegrationTest {
         );
 
         jdbcTemplate.update("""
+            DELETE FROM property_owners WHERE property_id = ?
+            """, PROPERTY_ID);
+
+        jdbcTemplate.update("""
             DELETE FROM registry_snapshots
             WHERE property_id = ?
             """,

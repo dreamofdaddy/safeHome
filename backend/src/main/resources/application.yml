@@ -1,4 +1,6 @@
 ﻿spring:
+  config:
+    import: optional:file:${SAFEHOME_CONFIG_FILE:./config/safehome-local.yml}
   application:
     name: safehome-backend
 
@@ -15,6 +17,11 @@
     hibernate:
       ddl-auto: validate
     open-in-view: false
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
 
   data:
     redis:
@@ -35,3 +42,20 @@ management:
     web:
       exposure:
         include: health,info
+
+safehome:
+  cors:
+    allowed-origins: ${SAFEHOME_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+  legacy-admin-api:
+    enabled: false
+  document:
+    storage-root: ${SAFEHOME_DOCUMENT_STORAGE_ROOT:./var/registry-documents}
+    encryption-key: ${SAFEHOME_DOCUMENT_ENCRYPTION_KEY:}
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: ${SAFEHOME_OPENAI_MODEL:gpt-4.1}
+  auth:
+    enforce: true
+  owner-identity:
+    encryption-key: ${SAFEHOME_OWNER_ENCRYPTION_KEY:}
+    hash-key: ${SAFEHOME_OWNER_HASH_KEY:}

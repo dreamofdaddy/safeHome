@@ -52,6 +52,14 @@ public class PropertyController {
         return ResponseEntity.ok(ApiResponse.success(propertyService.findById(id)));
     }
 
+    @GetMapping("/registry-number/{number}")
+    public ResponseEntity<ApiResponse<PropertyResponse>> findByRegistryPropertyNumber(
+        @PathVariable String number
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+            propertyService.findByRegistryPropertyNumber(number)));
+    }
+
     @PostMapping
     public ResponseEntity<ApiResponse<PropertyResponse>> create(
         @Valid @RequestBody PropertyCreateRequest request
