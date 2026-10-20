@@ -12,6 +12,18 @@
 
 ## 지금 적용한 항목
 
+### 개발 6단계 1차 구현 (2026-10-20)
+
+- 별도 Integration Server: Java 21 / Boot 4.1.1 / Spring AI 2.0.1, 기본 127.0.0.1:8090.
+- 내부 REST와 MCP는 X-SafeHome-Integration-Token으로 보호하며 32자 이상 토큰을 환경변수로 주입합니다.
+- 공공 API 디코딩 키는 BUILDING_HUB_SERVICE_KEY로 주입하고 저장소에 넣지 않습니다.
+- Backend client는 safehome.integration.enabled=true일 때만 등록합니다. 기존 자동 분석 흐름에는 아직 연결하지 않습니다.
+- DB·Compose·Frontend 계약은 변경하지 않습니다. Redis 캐시는 실제 API 명세와 전체 조회 검증 뒤 도입합니다.
+- 상세 작업·검증 현황은 docs/stage6-plan.md와 integration-server/README.md에 기록합니다.
+- Integration Server와 선택적 Backend client를 원본에 적용했습니다. 자동 분석 연계는 후속 검증 항목입니다.
+- 공식 건축HUB 가이드와 실제 응답을 대조해 전유부 → 기본개요 → 표제부 관리번호 관계를 검증했습니다.
+  개봉동과 잠실동 사례는 전체 수집 후 MATCHED였으며, 자동 분석 연계는 별도 작업입니다.
+
 | 항목 | 적용 내용 | 이유 |
 |---|---|---|
 | Frontend 표준 | React, TypeScript, Vite, React Router, Axios, TanStack Query, Tailwind CSS로 구성 | 이후 화면 개발이 같은 구조를 따르도록 기준 고정 |
@@ -70,6 +82,11 @@
 - 공개 전 취약점 검사와 주요 사용자 흐름 보안 검토를 수행합니다.
 
 ### 안정성과 운영 관측
+
+- Integration Server의 내부 TLS/인증키 순환·Origin 검증, 지속 호출 이력, 다중 인스턴스 호출량 제어를 구성합니다.
+- MCP의 잘못된 요청 응답에서 내부 스택 정보가 노출되지 않도록 오류 직렬화를 제한합니다.
+- 외부 응답을 스트리밍 수신하면서 크기를 제한하고, 실측 페이지 지연·호출량 기준으로 조회 예산을 조정합니다.
+- Redis에는 완전 수집한 원천 데이터와 원조회시각만 캐시하고 실패·부분수집은 저장하지 않습니다.
 
 - 요청 로그, 오류 추적, 지표, 대시보드, 알림과 감사 로그를 구성합니다.
 - 등기 분석 작업을 영속 Queue에서 처리하고 재시도, 중복 방지, 실패 작업 복구를 구현합니다.

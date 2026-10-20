@@ -30,9 +30,12 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Java / Spring Boot
+.gradle/
+.gradle-user/
 target/
 *.class
 *.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 *.war
 *.ear
 
