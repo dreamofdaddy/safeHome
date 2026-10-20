@@ -8,8 +8,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.util.UUID;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -24,14 +28,36 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthFlowIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
+    @Autowired JdbcTemplate jdbc;
+    @PersistenceContext EntityManager entityManager;
+
+    @Test
+    void rejectsMalformedSignupEmails() throws Exception {
+        for (String email : List.of(
+                "plain-address",
+                "user@example",
+                ".user@example.com",
+                "user..name@example.com",
+                "user@-example.com",
+                "user@example..com",
+                "user@example.c")) {
+            mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"" + email
+                        + "\",\"password\":\"LongLocalPassword-2026!\",\"name\":\"등록자\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("AUTH-009"));
+        }
+    }
 
     @Test
     void signupLoginAuthorizationAndLogout() throws Exception {
         String email = "auth-" + UUID.randomUUID() + "@example.test";
         String password = "LongLocalPassword-2026!";
-        String signup = "{\"email\":\"" + email + "\",\"password\":\"" + password + "\",\"name\":\"등록자\",\"phone\":\"010-1234-5678\"}";
+        String signup = "{\"email\":\"" + email + "\",\"password\":\"" + password + "\",\"name\":\"등록자\",\"phone\":\"01012345678\"}";
         mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON).content(signup))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.data.email").value(email))
+            .andExpect(jsonPath("$.data.phone").value("010-1234-5678"))
+            .andExpect(jsonPath("$.data.passwordChangeRequired").value(false))
             .andExpect(jsonPath("$.data.passwordHash").doesNotExist());
         assertThat(users.findByEmail(email).orElseThrow().getPasswordHash()).isNotEqualTo(password);
         mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON).content(signup))
@@ -52,6 +78,60 @@ class AuthFlowIntegrationTest {
             .andExpect(status().isNoContent());
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void enforcesPasswordPolicyExpiryAndHistory() throws Exception {
+        String email = "rotation-" + UUID.randomUUID() + "@example.test";
+        String original = "OriginalSafe1!";
+        String next = "NextPassword2!";
+        String third = "ThirdPassword3!";
+        mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"weak-password\",\"name\":\"등록자\"}"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"" + original + "\",\"name\":\"등록자\"}"))
+            .andExpect(status().isCreated());
+        entityManager.flush();
+        jdbc.update("UPDATE users SET password_changed_at = CURRENT_TIMESTAMP - INTERVAL '4 months' WHERE email = ?", email);
+        entityManager.clear();
+
+        String expiredToken = loginToken(email, original, true);
+        mvc.perform(get("/api/listings/mine").header("Authorization", "Bearer " + expiredToken))
+            .andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("AUTH-006"));
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + expiredToken))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.passwordChangeRequired").value(true));
+        mvc.perform(post("/api/auth/change-password").header("Authorization", "Bearer " + expiredToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currentPassword\":\"" + original + "\",\"newPassword\":\"" + original + "\"}"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("AUTH-005"));
+        mvc.perform(post("/api/auth/change-password").header("Authorization", "Bearer " + expiredToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currentPassword\":\"" + original + "\",\"newPassword\":\"" + next + "\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.passwordChangeRequired").value(false));
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + expiredToken))
+            .andExpect(status().isUnauthorized());
+
+        String nextToken = loginToken(email, next, false);
+        mvc.perform(post("/api/auth/change-password").header("Authorization", "Bearer " + nextToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currentPassword\":\"" + next + "\",\"newPassword\":\"" + third + "\"}"))
+            .andExpect(status().isOk());
+        String thirdToken = loginToken(email, third, false);
+        mvc.perform(post("/api/auth/change-password").header("Authorization", "Bearer " + thirdToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currentPassword\":\"" + third + "\",\"newPassword\":\"" + next + "\"}"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("AUTH-005"));
+    }
+
+    private String loginToken(String email, String password, boolean changeRequired) throws Exception {
+        var result = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.user.passwordChangeRequired").value(changeRequired))
+            .andReturn();
+        return result.getResponse().getContentAsString()
+            .replaceFirst(".*\\\"accessToken\\\":\\\"([^\\\"]+)\\\".*", "$1");
     }
 
     @Test

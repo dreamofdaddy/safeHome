@@ -51,7 +51,7 @@ class ListingSafetyAnalysisIntegrationTest {
         String propertyNumber = "1413-2026-" + String.format("%06d",
             Integer.parseInt(UUID.randomUUID().toString().substring(0, 5), 16) % 1_000_000);
         when(parser.parse(any())).thenReturn(new ParsedRegistryDocument(propertyNumber,
-            "서울특별시 강남구 테스트로 1", null, "테스트아파트", "101호",
+            "서울특별시 강남구 테스트로 1 제101호", null, "테스트아파트", "101호",
             "2026-10-13T10:00:00",
             List.of(new ParsedRegistryDocument.Owner("홍길동", "800101-*******",
                 BigDecimal.valueOf(100), null)),
@@ -134,7 +134,7 @@ class ListingSafetyAnalysisIntegrationTest {
     private long register(String token) throws Exception {
         String metadata = "{\"address\":\"서울특별시 강남구 테스트로 1\","+
             "\"buildingName\":\"테스트아파트\",\"buildingType\":\"APARTMENT\","+
-            "\"unitNumber\":\"101호\",\"transactionType\":\"MONTHLY_RENT\","+
+            "\"detailAddress\":\"101호\",\"transactionType\":\"MONTHLY_RENT\","+
             "\"depositAmount\":20000000,\"monthlyRent\":650000}";
         byte[] pdf;
         try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {

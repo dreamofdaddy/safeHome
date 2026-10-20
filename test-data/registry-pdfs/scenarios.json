@@ -1,0 +1,352 @@
+[
+  {
+    "code": "01",
+    "slug": "clean-single-owner",
+    "name": "권리 제한 없는 단독 소유",
+    "number": "1101-2026-000001",
+    "address": "서울특별시 테스트구 안전로 101, 안전아파트 101동 501호",
+    "road": "서울특별시 테스트구 안전로 101",
+    "building": "안전아파트",
+    "unit": "101동 501호",
+    "owners": [
+      {
+        "name": "김안전",
+        "masked": "900101-*******",
+        "ratio": "1.0",
+        "date": "2021-03-12"
+      }
+    ],
+    "rights": [],
+    "expected": "판독 성공 / 낮은 위험 예상",
+    "transaction": {
+      "type": "JEONSE",
+      "deposit": 120000000
+    }
+  },
+  {
+    "code": "02",
+    "slug": "moderate-mortgage",
+    "name": "단일 근저당",
+    "number": "1101-2026-000002",
+    "address": "서울특별시 테스트구 평온로 22, 평온빌라 202호",
+    "road": "서울특별시 테스트구 평온로 22",
+    "building": "평온빌라",
+    "unit": "202호",
+    "owners": [
+      {
+        "name": "이평온",
+        "masked": "850612-*******",
+        "ratio": "1.0",
+        "date": "2021-03-12"
+      }
+    ],
+    "rights": [
+      {
+        "rank": "1",
+        "purpose": "근저당권설정",
+        "received": "2023-04-10",
+        "detail": "채권최고액 금 120,000,000원",
+        "holder": "테스트은행",
+        "amount": "120000000",
+        "status": "유효"
+      }
+    ],
+    "expected": "판독 성공 / 근저당 위험 요소 예상",
+    "transaction": {
+      "type": "JEONSE",
+      "deposit": 80000000
+    }
+  },
+  {
+    "code": "03",
+    "slug": "high-debt",
+    "name": "복수 근저당과 높은 채권액",
+    "number": "1101-2026-000003",
+    "address": "부산광역시 테스트구 바다로 303, 파도오피스텔 1201호",
+    "road": "부산광역시 테스트구 바다로 303",
+    "building": "파도오피스텔",
+    "unit": "1201호",
+    "owners": [
+      {
+        "name": "박파도",
+        "masked": "780305-*******",
+        "ratio": "1.0",
+        "date": "2021-03-12"
+      }
+    ],
+    "rights": [
+      {
+        "rank": "1",
+        "purpose": "근저당권설정",
+        "received": "2022-02-18",
+        "detail": "채권최고액 금 260,000,000원",
+        "holder": "가상은행",
+        "amount": "260000000",
+        "status": "유효"
+      },
+      {
+        "rank": "2",
+        "purpose": "근저당권설정",
+        "received": "2024-11-06",
+        "detail": "채권최고액 금 90,000,000원",
+        "holder": "안심저축은행",
+        "amount": "90000000",
+        "status": "유효"
+      }
+    ],
+    "expected": "판독 성공 / 높은 담보 위험 예상",
+    "transaction": {
+      "type": "JEONSE",
+      "deposit": 250000000
+    }
+  },
+  {
+    "code": "04",
+    "slug": "seizure",
+    "name": "압류와 가압류",
+    "number": "1101-2026-000004",
+    "address": "대전광역시 테스트구 미래길 44, 미래주택 2층",
+    "road": "대전광역시 테스트구 미래길 44",
+    "building": "미래주택",
+    "unit": "2층",
+    "owners": [
+      {
+        "name": "최미래",
+        "masked": "920817-*******",
+        "ratio": "1.0",
+        "date": "2021-03-12"
+      }
+    ],
+    "rights": [
+      {
+        "rank": "1",
+        "purpose": "압류",
+        "received": "2025-01-14",
+        "detail": "조세 체납에 따른 압류",
+        "holder": "테스트세무서",
+        "amount": "",
+        "status": "유효"
+      },
+      {
+        "rank": "2",
+        "purpose": "가압류",
+        "received": "2025-06-02",
+        "detail": "청구금액 금 75,000,000원",
+        "holder": "가상보증기금",
+        "amount": "75000000",
+        "status": "유효"
+      }
+    ],
+    "expected": "판독 성공 / 압류·가압류 고위험 예상",
+    "transaction": {
+      "type": "MONTHLY_RENT",
+      "deposit": 30000000,
+      "monthlyRent": 900000
+    }
+  },
+  {
+    "code": "05",
+    "slug": "co-owners",
+    "name": "공동 소유",
+    "number": "1101-2026-000005",
+    "address": "인천광역시 테스트구 함께로 55, 한마음아파트 502동 703호",
+    "road": "인천광역시 테스트구 함께로 55",
+    "building": "한마음아파트",
+    "unit": "502동 703호",
+    "owners": [
+      {
+        "name": "정하나",
+        "masked": "880202-*******",
+        "ratio": "0.5",
+        "date": "2021-03-12"
+      },
+      {
+        "name": "정두리",
+        "masked": "900909-*******",
+        "ratio": "0.5",
+        "date": "2021-03-12"
+      }
+    ],
+    "rights": [],
+    "expected": "판독 성공 / 공동소유 확인 요소 예상",
+    "transaction": {
+      "type": "SALE",
+      "salePrice": 480000000
+    }
+  },
+  {
+    "code": "06",
+    "slug": "cancelled-rights",
+    "name": "말소된 근저당과 압류",
+    "number": "1101-2026-000006",
+    "address": "광주광역시 테스트구 새봄로 66, 새봄아파트 601호",
+    "road": "광주광역시 테스트구 새봄로 66",
+    "building": "새봄아파트",
+    "unit": "601호",
+    "owners": [
+      {
+        "name": "한새봄",
+        "masked": "810411-*******",
+        "ratio": "1.0",
+        "date": "2024-03-20"
+      }
+    ],
+    "rights": [
+      {
+        "rank": "1",
+        "purpose": "근저당권설정",
+        "received": "2020-08-17",
+        "detail": "채권최고액 금 150,000,000원 / 2024-03-20 말소",
+        "holder": "예전은행",
+        "amount": "150000000",
+        "status": "말소"
+      },
+      {
+        "rank": "2",
+        "purpose": "압류",
+        "received": "2021-09-03",
+        "detail": "2022-01-10 말소",
+        "holder": "테스트구청",
+        "amount": "",
+        "status": "말소"
+      }
+    ],
+    "expected": "판독 성공 / 말소 권리는 INACTIVE 처리",
+    "transaction": {
+      "type": "JEONSE",
+      "deposit": 150000000
+    }
+  },
+  {
+    "code": "07",
+    "slug": "leasehold",
+    "name": "선순위 전세권",
+    "number": "1101-2026-000007",
+    "address": "경기도 테스트시 우선로 77, 우선빌딩 803호",
+    "road": "경기도 테스트시 우선로 77",
+    "building": "우선빌딩",
+    "unit": "803호",
+    "owners": [
+      {
+        "name": "오우선",
+        "masked": "760725-*******",
+        "ratio": "1.0",
+        "date": "2021-03-12"
+      }
+    ],
+    "rights": [
+      {
+        "rank": "1",
+        "purpose": "전세권설정",
+        "received": "2023-07-01",
+        "detail": "전세금 금 180,000,000원 / 존속기간 2027-06-30",
+        "holder": "임차테스트",
+        "amount": "180000000",
+        "status": "유효"
+      }
+    ],
+    "expected": "판독 성공 / 선순위 권리 위험 예상",
+    "transaction": {
+      "type": "JEONSE",
+      "deposit": 160000000
+    }
+  },
+  {
+    "code": "08",
+    "slug": "complex-risk",
+    "name": "공동소유·근저당·가압류 복합",
+    "number": "1101-2026-000008",
+    "address": "제주특별자치도 테스트시 복합로 88, 복합타운 3동 1004호",
+    "road": "제주특별자치도 테스트시 복합로 88",
+    "building": "복합타운",
+    "unit": "3동 1004호",
+    "owners": [
+      {
+        "name": "강복합",
+        "masked": "830101-*******",
+        "ratio": "0.6",
+        "date": "2021-03-12"
+      },
+      {
+        "name": "윤복합",
+        "masked": "840202-*******",
+        "ratio": "0.4",
+        "date": "2021-03-12"
+      }
+    ],
+    "rights": [
+      {
+        "rank": "1",
+        "purpose": "근저당권설정",
+        "received": "2022-05-11",
+        "detail": "채권최고액 금 300,000,000원",
+        "holder": "테스트은행",
+        "amount": "300000000",
+        "status": "유효"
+      },
+      {
+        "rank": "2",
+        "purpose": "가압류",
+        "received": "2025-09-15",
+        "detail": "청구금액 금 130,000,000원",
+        "holder": "가상채권자",
+        "amount": "130000000",
+        "status": "유효"
+      }
+    ],
+    "expected": "판독 성공 / 복합 고위험 예상",
+    "transaction": {
+      "type": "SALE",
+      "salePrice": 520000000
+    }
+  },
+  {
+    "code": "09",
+    "slug": "ownership-changes",
+    "name": "소유권 이전 이력과 현재 소유자",
+    "number": "1101-2026-000009",
+    "address": "강원특별자치도 테스트시 이력길 99, 기록아파트 905호",
+    "road": "강원특별자치도 테스트시 이력길 99",
+    "building": "기록아파트",
+    "unit": "905호",
+    "owners": [
+      {
+        "name": "남현재",
+        "masked": "950505-*******",
+        "ratio": "1.0",
+        "date": "2025-12-01"
+      }
+    ],
+    "former": [
+      {
+        "name": "서과거",
+        "masked": "700707-*******",
+        "ratio": "1.0",
+        "date": "2018-05-03"
+      }
+    ],
+    "rights": [],
+    "expected": "판독 성공 / 말소된 이전 소유자를 제외하고 현재 소유자만 추출",
+    "transaction": {
+      "type": "JEONSE",
+      "deposit": 100000000
+    }
+  },
+  {
+    "code": "10",
+    "slug": "invalid-missing-required",
+    "name": "필수 식별정보 누락",
+    "number": "",
+    "address": "테스트 주소 일부만 표시된 문서",
+    "road": "",
+    "building": "",
+    "unit": "",
+    "owners": [],
+    "rights": [],
+    "expected": "판독 실패 예상 / 필수 고유번호·현재 소유자 누락",
+    "transaction": {
+      "type": "JEONSE",
+      "deposit": 50000000
+    }
+  }
+]

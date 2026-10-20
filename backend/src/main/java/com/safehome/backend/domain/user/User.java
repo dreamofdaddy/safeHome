@@ -32,6 +32,12 @@ public class User {
     @Column(name = "password_hash", length = 100)
     private String passwordHash;
 
+    @Column(name = "previous_password_hash", length = 100)
+    private String previousPasswordHash;
+
+    @Column(name = "password_changed_at", nullable = false)
+    private LocalDateTime passwordChangedAt;
+
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
@@ -78,6 +84,10 @@ public class User {
         if (updatedAt == null) {
             updatedAt = now;
         }
+
+        if (passwordChangedAt == null) {
+            passwordChangedAt = now;
+        }
     }
 
     @PreUpdate
@@ -91,6 +101,28 @@ public class User {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getPreviousPasswordHash() {
+        return previousPasswordHash;
+    }
+
+    public LocalDateTime getPasswordChangedAt() {
+        return passwordChangedAt;
+    }
+
+    public boolean isPasswordChangeRequired() {
+        return passwordChangedAt == null || !passwordChangedAt.isAfter(LocalDateTime.now().minusMonths(3));
+    }
+
+    public void markPasswordChangedNow() {
+        passwordChangedAt = LocalDateTime.now();
+    }
+
+    public void changePassword(String newPasswordHash) {
+        previousPasswordHash = passwordHash;
+        passwordHash = newPasswordHash;
+        passwordChangedAt = LocalDateTime.now();
     }
 
     public Long getId() {

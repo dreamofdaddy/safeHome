@@ -2,7 +2,7 @@ package com.safehome.backend.domain.listing;
 
 import com.safehome.backend.common.response.ApiResponse;
 import com.safehome.backend.domain.listing.dto.ListingResponse;
-import com.safehome.backend.domain.listing.dto.ListingUpdateRequest;
+import com.safehome.backend.domain.document.dto.ListingRegistrationRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -54,18 +54,16 @@ public class ListingController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ListingResponse>> update(
             @PathVariable Long id,
-            @Valid @RequestBody ListingUpdateRequest request,
+            @Valid @RequestBody ListingRegistrationRequest request,
             @RequestHeader("Authorization") String authorization) {
 
-        listingService.assertOwner(id, authService.requireUser(authorization).getId());
-        return ResponseEntity.ok(ApiResponse.success(listingService.update(id, request)));
+        return ResponseEntity.ok(ApiResponse.success(listingService.update(id, authService.requireUser(authorization).getId(), request)));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id,
             @RequestHeader("Authorization") String authorization) {
-        listingService.assertOwner(id, authService.requireUser(authorization).getId());
-        listingService.delete(id);
+        listingService.delete(id, authService.requireUser(authorization).getId());
 
         return ResponseEntity.noContent().build();
     }

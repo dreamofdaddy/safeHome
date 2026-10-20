@@ -11,6 +11,8 @@ public record UserResponse(
         String phone,
         String verificationStatus,
         String status,
+        boolean passwordChangeRequired,
+        LocalDateTime passwordChangedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -23,6 +25,8 @@ public record UserResponse(
                 user.getPhone(),
                 user.getVerificationStatus(),
                 user.getStatus(),
+                user.isPasswordChangeRequired(),
+                user.getPasswordChangedAt(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );

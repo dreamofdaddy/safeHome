@@ -22,18 +22,14 @@ public class Listing {
     @Column(name = "registered_by_user_id", nullable = false)
     private Long registeredByUserId;
 
-    @Column(name = "listing_address", length = 500)
-    private String listingAddress;
-    @Column(name = "road_address", length = 500)
-    private String roadAddress;
+    @Column(name = "address", nullable = false, length = 500)
+    private String address;
     @Column(name = "building_name", length = 200)
     private String buildingName;
     @Column(name = "building_type", length = 50)
     private String buildingType;
-    @Column(name = "unit_number", length = 100)
-    private String unitNumber;
-    @Column(name = "postal_code", length = 20)
-    private String postalCode;
+    @Column(name = "detail_address", length = 500)
+    private String detailAddress;
 
     @Column(name = "transaction_type", nullable = false, length = 30)
     private String transactionType;
@@ -87,18 +83,16 @@ public class Listing {
         this.expiredAt = expiredAt;
     }
 
-    public static Listing pendingAnalysis(Long userId, String address, String roadAddress,
-            String buildingName, String buildingType, String unitNumber, String postalCode,
+    public static Listing pendingAnalysis(Long userId, String address,
+            String buildingName, String buildingType, String detailAddress,
             String transactionType, BigDecimal depositAmount, BigDecimal monthlyRent,
             BigDecimal salePrice, LocalDateTime listedAt, LocalDateTime expiredAt) {
         Listing listing = new Listing(null, userId, transactionType, depositAmount, monthlyRent,
             salePrice, "READY_FOR_ANALYSIS", listedAt, expiredAt);
-        listing.listingAddress = address;
-        listing.roadAddress = roadAddress;
+        listing.address = address;
         listing.buildingName = buildingName;
         listing.buildingType = buildingType;
-        listing.unitNumber = unitNumber;
-        listing.postalCode = postalCode;
+        listing.detailAddress = detailAddress;
         return listing;
     }
 
@@ -128,12 +122,22 @@ public class Listing {
         return id;
     }
 
-    public String getListingAddress() { return listingAddress; }
-    public String getRoadAddress() { return roadAddress; }
+    public String getAddress() { return address; }
+    public String getFullAddress() {
+        return address + (detailAddress == null || detailAddress.isBlank() ? "" : " " + detailAddress.trim());
+    }
+    public void revise(com.safehome.backend.domain.document.dto.ListingRegistrationRequest request) {
+        address = request.address().trim();
+        detailAddress = request.detailAddress() == null ? null : request.detailAddress().trim();
+        buildingName = request.buildingName(); buildingType = request.buildingType();
+        transactionType = request.transactionType(); depositAmount = request.depositAmount();
+        monthlyRent = request.monthlyRent(); salePrice = request.salePrice();
+        if (request.listedAt() != null) listedAt = request.listedAt();
+        expiredAt = request.expiredAt(); updatedAt = LocalDateTime.now();
+    }
     public String getBuildingName() { return buildingName; }
     public String getBuildingType() { return buildingType; }
-    public String getUnitNumber() { return unitNumber; }
-    public String getPostalCode() { return postalCode; }
+    public String getDetailAddress() { return detailAddress; }
 
     public Long getPropertyId() {
         return propertyId;
@@ -199,21 +203,4 @@ public class Listing {
         updatedAt = LocalDateTime.now();
     }
 
-    public void update(
-            String transactionType,
-            BigDecimal depositAmount,
-            BigDecimal monthlyRent,
-            BigDecimal salePrice,
-            String status,
-            LocalDateTime listedAt,
-            LocalDateTime expiredAt
-    ) {
-        this.transactionType = transactionType;
-        this.depositAmount = depositAmount;
-        this.monthlyRent = monthlyRent;
-        this.salePrice = salePrice;
-        this.status = status;
-        this.listedAt = listedAt;
-        this.expiredAt = expiredAt;
-    }
 }

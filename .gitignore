@@ -1,4 +1,4 @@
-﻿# ==============================
+# ==============================
 # SafeHome Git Ignore
 # ==============================
 
@@ -48,9 +48,11 @@ target/
 Thumbs.db
 desktop.ini
 
-# Logs
+# Logs and local process state
 *.log
 logs/
+.run/
+.runlogs/
 
 # Temporary
 tmp/

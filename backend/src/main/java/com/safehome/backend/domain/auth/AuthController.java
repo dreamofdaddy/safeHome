@@ -23,7 +23,13 @@ public class AuthController {
     }
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> me(@RequestHeader("Authorization") String authorization) {
-        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(auth.requireUser(authorization))));
+        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(auth.requireUserAllowExpiredPassword(authorization))));
+    }
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<UserResponse>> changePassword(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(auth.changePassword(authorization, request)));
     }
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authorization) {

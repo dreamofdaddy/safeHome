@@ -7,5 +7,6 @@ import java.util.Optional;
 public interface RegistryDocumentRepository extends JpaRepository<RegistryDocument, Long> {
     List<RegistryDocument> findByUploadedByUserIdOrderByCreatedAtDesc(Long userId);
     Optional<RegistryDocument> findTopByListingIdOrderByIdDesc(Long listingId);
+    List<RegistryDocument> findByListingId(Long listingId);
     List<RegistryDocument> findByStatus(String status);
 }

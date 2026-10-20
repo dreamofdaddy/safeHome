@@ -41,7 +41,7 @@ class RegistryProcessingIntegrationTest {
         long listingId = register(token);
         String number = "1413-2026-" + String.format("%06d", Math.abs(UUID.randomUUID().hashCode()) % 1000000);
         when(parser.parse(any())).thenReturn(new ParsedRegistryDocument(number,
-            "서울특별시 강남구 테스트로 1", null, null, "101호", "2026-10-13T10:00:00",
+            "서울특별시 강남구 테스트로 1 제101호", null, null, "101호", "2026-10-13T10:00:00",
             List.of(new ParsedRegistryDocument.Owner("홍길동", "800101-*******", BigDecimal.valueOf(100), null)),
             List.of(new ParsedRegistryDocument.Right("MORTGAGE", "은행", BigDecimal.valueOf(10000000), 1,
                 "2020-01-01T00:00:00", "INACTIVE"))));
@@ -77,7 +77,7 @@ class RegistryProcessingIntegrationTest {
 
     private long register(String token) throws Exception {
         String metadata = "{\"address\":\"서울특별시 강남구 테스트로 1\","+
-            "\"buildingType\":\"APARTMENT\",\"unitNumber\":\"101호\","+
+            "\"buildingType\":\"APARTMENT\",\"detailAddress\":\"101호\","+
             "\"transactionType\":\"JEONSE\",\"depositAmount\":20000000}";
         byte[] pdf;
         try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {

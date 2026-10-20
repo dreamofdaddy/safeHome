@@ -30,7 +30,7 @@ class ListingServiceValidationTest {
     void setUp() {
         openMocks(this);
         listingService = new ListingService(
-                listingRepository, propertyRepository, userRepository, codeService);
+                listingRepository, propertyRepository, userRepository, codeService, null, null);
         when(codeService.getRequiredActiveCode(anyString(), anyString()))
                 .thenAnswer(invocation -> invocation.getArgument(1));
     }
@@ -84,8 +84,8 @@ class ListingServiceValidationTest {
             LocalDateTime listedAt,
             LocalDateTime expiredAt) {
         return new ListingRegistrationRequest(
-                "서울특별시 중구 세종대로 110", null, "테스트 건물", "APARTMENT",
-                "101호", null, transactionType, depositAmount, monthlyRent, salePrice,
+                "서울특별시 중구 세종대로 110", "테스트 건물", "APARTMENT",
+                "101호", transactionType, depositAmount, monthlyRent, salePrice,
                 listedAt, expiredAt);
     }
 

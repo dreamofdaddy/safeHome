@@ -48,9 +48,9 @@ public class DocumentAnalysisPersistenceService {
 
         Property property = properties.findByRegistryPropertyNumber(verified.registryPropertyNumber())
             .orElseGet(() -> properties.save(new Property(verified.registryPropertyNumber(),
-                verified.address(), fallback(verified.roadAddress(), listing.getRoadAddress()),
+                verified.address(), verified.roadAddress(),
                 fallback(verified.buildingName(), listing.getBuildingName()), listing.getBuildingType(),
-                fallback(verified.unitNumber(), listing.getUnitNumber()), listing.getPostalCode())));
+                verified.unitNumber(), null)));
         if (!sameAddress(property.getAddress(), verified.address()))
             throw new RegistryParseException("REGISTRY_PROPERTY_CONFLICT");
 
@@ -77,7 +77,6 @@ public class DocumentAnalysisPersistenceService {
     }
 
     private boolean sameAddress(String left, String right) {
-        return left.replaceAll("[^\\p{IsHangul}A-Za-z0-9]", "")
-            .equals(right.replaceAll("[^\\p{IsHangul}A-Za-z0-9]", ""));
+        return com.safehome.backend.domain.document.parser.RegistryAddressMatcher.same(left, right);
     }
 }

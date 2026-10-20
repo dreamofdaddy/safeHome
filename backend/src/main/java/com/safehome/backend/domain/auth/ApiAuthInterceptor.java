@@ -31,7 +31,14 @@ public class ApiAuthInterceptor implements HandlerInterceptor {
         String path = request.getRequestURI();
         if ("OPTIONS".equals(request.getMethod())
                 || path.equals("/api/auth/signup") || path.equals("/api/auth/login")) return true;
-        if (enforce) auth.requireUser(request.getHeader("Authorization"));
+        if (enforce) {
+            if (path.equals("/api/auth/me") || path.equals("/api/auth/logout")
+                    || path.equals("/api/auth/change-password")) {
+                auth.requireUserAllowExpiredPassword(request.getHeader("Authorization"));
+            } else {
+                auth.requireUser(request.getHeader("Authorization"));
+            }
+        }
         if (!legacyAdminApiEnabled && isLegacyAdminPath(path)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }

@@ -18,8 +18,10 @@ public class RegistryExtractionValidator {
         if (parsed == null || parsed.registryPropertyNumber() == null
                 || !parsed.registryPropertyNumber().matches("[0-9]{4}-[0-9]{4}-[0-9]{6}"))
             throw new RegistryParseException("REGISTRY_NUMBER_UNCERTAIN");
-        if (blank(parsed.address()) || listing == null || blank(listing.getListingAddress())
-                || !normalizeAddress(parsed.address()).equals(normalizeAddress(listing.getListingAddress())))
+        if ((blank(parsed.address()) && blank(parsed.roadAddress()))
+                || listing == null || blank(listing.getFullAddress())
+                || (!sameAddress(listing.getFullAddress(), parsed.address())
+                    && !sameAddress(listing.getFullAddress(), parsed.roadAddress())))
             throw new RegistryParseException("REGISTRY_ADDRESS_MISMATCH");
         if (parsed.owners() == null || parsed.owners().isEmpty())
             throw new RegistryParseException("REGISTRY_OWNER_UNCERTAIN");
@@ -52,7 +54,8 @@ public class RegistryExtractionValidator {
             return new VerifiedRegistryDocument.Right(right.type(), right.holderName(),
                 right.amount(), right.priority(), parseDate(right.registeredAt(), false), right.status());
         }).toList();
-        return new VerifiedRegistryDocument(parsed.registryPropertyNumber(), parsed.address().trim(),
+        String primaryAddress = blank(parsed.address()) ? parsed.roadAddress().trim() : parsed.address().trim();
+        return new VerifiedRegistryDocument(parsed.registryPropertyNumber(), primaryAddress,
             parsed.roadAddress(), parsed.buildingName(), parsed.unitNumber(), observedAt, owners, rights);
     }
 
@@ -67,9 +70,7 @@ public class RegistryExtractionValidator {
 
     private boolean blank(String value) { return value == null || value.isBlank(); }
 
-    private String normalizeAddress(String address) {
-        return address.replaceAll("제[0-9]+층", "")
-            .replaceAll("제(?=[0-9]+호)", "")
-            .replaceAll("[^\\p{IsHangul}A-Za-z0-9]", "");
+    private boolean sameAddress(String left, String right) {
+        return RegistryAddressMatcher.same(left, right);
     }
 }

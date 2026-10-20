@@ -29,6 +29,7 @@ class ListingRegistrationIntegrationTest {
     @Autowired PrivatePdfStorage storage;
     @Autowired PropertyRepository properties;
     @Autowired JdbcTemplate jdbc;
+    @Autowired jakarta.persistence.EntityManager entityManager;
 
     @Test
     void signupLoginThenStoreListingAndPrivatePdfWithoutCreatingProperty() throws Exception {
@@ -37,7 +38,7 @@ class ListingRegistrationIntegrationTest {
         long beforeProperties = properties.count();
         byte[] pdf = onePagePdf();
         String metadata = "{\"address\":\"서울특별시 강남구 테스트로 1\","
-            + "\"buildingType\":\"APARTMENT\",\"unitNumber\":\"101호\","
+            + "\"buildingType\":\"APARTMENT\",\"detailAddress\":\"101호\","
             + "\"transactionType\":\"JEONSE\",\"depositAmount\":200000000}";
         MockMultipartFile json = new MockMultipartFile("metadata", "", "application/json", metadata.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         MockMultipartFile file = new MockMultipartFile("registryPdf", "registry.pdf", "application/pdf", pdf);
@@ -47,6 +48,9 @@ class ListingRegistrationIntegrationTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.message").value("등기부 업로드 완료"))
             .andExpect(jsonPath("$.data.listing.status").value("READY_FOR_ANALYSIS"))
+            .andExpect(jsonPath("$.data.listing.address").value("서울특별시 강남구 테스트로 1"))
+            .andExpect(jsonPath("$.data.listing.roadAddress").doesNotExist())
+            .andExpect(jsonPath("$.data.listing.postalCode").doesNotExist())
             .andExpect(jsonPath("$.data.listing.propertyId").doesNotExist())
             .andExpect(jsonPath("$.data.document.status").value("UPLOADED"));
         assertThat(properties.count()).isEqualTo(beforeProperties);
@@ -89,6 +93,68 @@ class ListingRegistrationIntegrationTest {
                 .header("Authorization", "Bearer " + token))
             .andExpect(status().isBadRequest());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM listings", Long.class)).isEqualTo(before);
+    }
+
+    @Test
+    void ownerCanReviseFailedListingAndDeleteItsDocumentButNotProcessingOrParsedListing() throws Exception {
+        String token = signupAndLogin("edit-" + UUID.randomUUID() + "@example.test");
+        String other = signupAndLogin("edit-other-" + UUID.randomUUID() + "@example.test");
+        String filename = UUID.randomUUID() + ".pdf";
+        String metadata = """
+            {"address":"서울특별시 강남구 테스트로 1","detailAddress":"테스트아파트 101동 제202호",
+             "buildingName":"테스트아파트","buildingType":"APARTMENT",
+             "transactionType":"JEONSE","depositAmount":200000000}
+            """;
+        mvc.perform(multipart("/api/registry-documents/listings")
+            .file(new MockMultipartFile("metadata", "", "application/json", metadata.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+            .file(new MockMultipartFile("registryPdf", filename, "application/pdf", onePagePdf()))
+            .header("Authorization", "Bearer " + token)).andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.listing.detailAddress").value("테스트아파트 101동 제202호"));
+        var doc = documents.findAll().stream().filter(d -> filename.equals(d.getOriginalFilename())).findFirst().orElseThrow();
+        Long id = doc.getListingId();
+        String corrected = metadata.replace("제202호", "제203호");
+        mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + other)
+            .contentType(MediaType.APPLICATION_JSON).content(corrected)).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/listings/" + id).header("Authorization", "Bearer " + other)).andExpect(status().isForbidden());
+        mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON).content(corrected)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.detailAddress").value("테스트아파트 101동 제203호"));
+        for (String state : new String[] {"REGISTRY_PROCESSING", "REGISTRY_READY", "SAFETY_ANALYZED"}) {
+            entityManager.flush(); entityManager.clear();
+            jdbc.update("UPDATE listings SET status=? WHERE id=?", state, id);
+            mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(metadata)).andExpect(status().isConflict());
+            mvc.perform(delete("/api/listings/" + id).header("Authorization", "Bearer " + token)).andExpect(status().isConflict());
+        }
+        jdbc.update("UPDATE listings SET status='REGISTRY_FAILED' WHERE id=?", id);
+        entityManager.clear();
+        mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON).content(metadata)).andExpect(status().isOk());
+        mvc.perform(delete("/api/listings/" + id).header("Authorization", "Bearer " + token)).andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM listings WHERE id=?", Long.class, id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM registry_documents WHERE listing_id=?", Long.class, id)).isZero();
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void committedDeletionAlsoRemovesPrivatePdf() throws Exception {
+        String token = signupAndLogin("delete-file-" + UUID.randomUUID() + "@example.test");
+        String filename = UUID.randomUUID() + ".pdf";
+        String metadata = """
+            {"address":"서울 테스트로 1","detailAddress":"101호","buildingType":"APARTMENT",
+             "transactionType":"JEONSE","depositAmount":200000000}
+            """;
+        mvc.perform(multipart("/api/registry-documents/listings")
+            .file(new MockMultipartFile("metadata", "", "application/json", metadata.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+            .file(new MockMultipartFile("registryPdf", filename, "application/pdf", onePagePdf()))
+            .header("Authorization", "Bearer " + token)).andExpect(status().isCreated());
+        var doc = documents.findAll().stream().filter(d -> filename.equals(d.getOriginalFilename())).findFirst().orElseThrow();
+        assertThat(storage.read(doc.getStorageKey())).isNotEmpty();
+        mvc.perform(delete("/api/listings/" + doc.getListingId()).header("Authorization", "Bearer " + token))
+            .andExpect(status().isNoContent());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> storage.read(doc.getStorageKey()))
+            .isInstanceOf(IllegalStateException.class);
+        assertThat(documents.findById(doc.getId())).isEmpty();
     }
 
     private String signupAndLogin(String email) throws Exception {

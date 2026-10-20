@@ -1,23 +1,22 @@
-﻿services:
-
+services:
   postgres:
     image: postgres:17
     container_name: safehome-postgres
     restart: unless-stopped
 
     environment:
-      POSTGRES_DB: safehome
-      POSTGRES_USER: safehome
-      POSTGRES_PASSWORD: safehome_local
+      POSTGRES_DB: ${POSTGRES_DB:-safehome}
+      POSTGRES_USER: ${POSTGRES_USER:-safehome}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-safehome_local}
 
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U safehome -d safehome"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -28,7 +27,7 @@
     restart: unless-stopped
 
     ports:
-      - "6379:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
 
     volumes:
       - redis_data:/data
