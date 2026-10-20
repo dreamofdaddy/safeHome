@@ -15,7 +15,7 @@ export type TransactionType = 'JEONSE' | 'MONTHLY_RENT' | 'SALE'
 export interface Listing {
   id: number; propertyId: number | null; riskAnalysisId: number | null; registeredByUserId: number;
   address: string; buildingName?: string; buildingType: string;
-  detailAddress?: string; transactionType: TransactionType;
+  detailAddress?: string; addressSearchEvidence?: AddressSearchEvidence | null; transactionType: TransactionType;
   depositAmount: number | null; monthlyRent: number | null; salePrice: number | null;
   status: ListingStatus; listedAt?: string; expiredAt?: string; createdAt: string; updatedAt: string;
 }
@@ -48,8 +48,13 @@ export interface SafetyResult {
 
 export interface ListingMetadata {
   address: string; buildingName: string | null; buildingType: string;
-  detailAddress: string | null; transactionType: TransactionType;
+  detailAddress: string | null; addressSearchEvidence?: AddressSearchEvidence | null; transactionType: TransactionType;
   depositAmount: number | null; monthlyRent: number | null; salePrice: number | null;
+}
+
+export interface AddressSearchEvidence {
+  selectedType: 'R' | 'J'; selectedAddress: string; jibunAddress: string | null;
+  bcode: string; sigunguCode: string; noSelected: 'Y' | 'N';
 }
 
 export interface ListingRegistration { listing: Listing; document: RegistryDocument; message: string }

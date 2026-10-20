@@ -30,6 +30,18 @@ public class Listing {
     private String buildingType;
     @Column(name = "detail_address", length = 500)
     private String detailAddress;
+    @Column(name = "address_search_type", length = 1)
+    private String addressSearchType;
+    @Column(name = "address_search_selected_address", length = 500)
+    private String addressSearchSelectedAddress;
+    @Column(name = "address_search_jibun_address", length = 500)
+    private String addressSearchJibunAddress;
+    @Column(name = "address_search_bcode", length = 10)
+    private String addressSearchBcode;
+    @Column(name = "address_search_sigungu_code", length = 5)
+    private String addressSearchSigunguCode;
+    @Column(name = "address_search_no_selected", length = 1)
+    private String addressSearchNoSelected;
 
     @Column(name = "transaction_type", nullable = false, length = 30)
     private String transactionType;
@@ -94,6 +106,21 @@ public class Listing {
         listing.buildingType = buildingType;
         listing.detailAddress = detailAddress;
         return listing;
+    }
+
+    public void setAddressSearchEvidence(AddressSearchEvidence evidence) {
+        addressSearchType = evidence == null ? null : evidence.selectedType();
+        addressSearchSelectedAddress = evidence == null ? null : evidence.selectedAddress();
+        addressSearchJibunAddress = evidence == null ? null : evidence.jibunAddress();
+        addressSearchBcode = evidence == null ? null : evidence.bcode();
+        addressSearchSigunguCode = evidence == null ? null : evidence.sigunguCode();
+        addressSearchNoSelected = evidence == null ? null : evidence.noSelected();
+    }
+
+    public AddressSearchEvidence getAddressSearchEvidence() {
+        return addressSearchType == null ? null : new AddressSearchEvidence(addressSearchType,
+                addressSearchSelectedAddress, addressSearchJibunAddress, addressSearchBcode,
+                addressSearchSigunguCode, addressSearchNoSelected);
     }
 
     @PrePersist

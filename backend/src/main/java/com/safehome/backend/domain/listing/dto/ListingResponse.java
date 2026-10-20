@@ -1,6 +1,7 @@
 package com.safehome.backend.domain.listing.dto;
 
 import com.safehome.backend.domain.listing.Listing;
+import com.safehome.backend.domain.listing.AddressSearchEvidence;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,7 +23,8 @@ public record ListingResponse(
         LocalDateTime listedAt,
         LocalDateTime expiredAt,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        AddressSearchEvidence addressSearchEvidence
 ) {
 
     public static ListingResponse from(Listing listing) {
@@ -43,7 +45,8 @@ public record ListingResponse(
                 listing.getListedAt(),
                 listing.getExpiredAt(),
                 listing.getCreatedAt(),
-                listing.getUpdatedAt()
+                listing.getUpdatedAt(),
+                listing.getAddressSearchEvidence()
         );
     }
 }

@@ -100,6 +100,8 @@ public class ListingService {
             request.buildingName(), request.buildingType(), request.detailAddress(),
             request.transactionType(), request.depositAmount(), request.monthlyRent(),
             request.salePrice(), request.listedAt(), request.expiredAt());
+        listing.setAddressSearchEvidence(request.addressSearchEvidence() == null ? null
+            : request.addressSearchEvidence().validatedFor(request.address()));
         return ListingResponse.from(listingRepository.save(listing));
     }
 
@@ -117,7 +119,10 @@ public class ListingService {
         validateTransactionTerms(request.transactionType(), request.depositAmount(), request.monthlyRent(),
             request.salePrice(), request.listedAt(), request.expiredAt());
         codeService.getRequiredActiveCode("PROPERTY_TYPE", request.buildingType());
+        var evidence = request.addressSearchEvidence() == null ? null
+            : request.addressSearchEvidence().validatedFor(request.address());
         listing.revise(request);
+        listing.setAddressSearchEvidence(evidence);
         return ListingResponse.from(listing);
     }
 

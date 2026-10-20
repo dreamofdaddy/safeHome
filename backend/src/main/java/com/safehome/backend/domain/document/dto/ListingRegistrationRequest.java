@@ -1,6 +1,7 @@
 package com.safehome.backend.domain.document.dto;
 
 import jakarta.validation.constraints.*;
+import com.safehome.backend.domain.listing.AddressSearchEvidence;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -14,5 +15,14 @@ public record ListingRegistrationRequest(
     BigDecimal monthlyRent,
     BigDecimal salePrice,
     LocalDateTime listedAt,
-    LocalDateTime expiredAt
-) {}
+    LocalDateTime expiredAt,
+    AddressSearchEvidence addressSearchEvidence
+) {
+    public ListingRegistrationRequest(String address, String buildingName, String buildingType,
+            String detailAddress, String transactionType, BigDecimal depositAmount,
+            BigDecimal monthlyRent, BigDecimal salePrice, LocalDateTime listedAt,
+            LocalDateTime expiredAt) {
+        this(address, buildingName, buildingType, detailAddress, transactionType,
+                depositAmount, monthlyRent, salePrice, listedAt, expiredAt, null);
+    }
+}

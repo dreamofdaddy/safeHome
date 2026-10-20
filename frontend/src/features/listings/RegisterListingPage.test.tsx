@@ -8,7 +8,7 @@ import type { Listing } from '../../types/api'
 
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 7 } }) }))
 vi.mock('./api', () => ({ listingsApi: { one: vi.fn(), update: vi.fn(), register: vi.fn() } }))
-afterEach(() => { cleanup(); vi.clearAllMocks() })
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals() })
 const listing = { id: 9, registeredByUserId: 7, address: '서울 테스트로 1', detailAddress: '안전아파트 제202호', buildingName: '안전아파트', buildingType: 'APARTMENT', transactionType: 'JEONSE', depositAmount: 200000000, status: 'REGISTRY_FAILED' } as Listing
 
 function open(path: string) {
@@ -38,6 +38,36 @@ describe('listing registration and correction', () => {
     fireEvent.click(screen.getByRole('button', { name: '수정 저장' }))
     await waitFor(() => expect(listingsApi.update).toHaveBeenCalledWith(9, expect.objectContaining({ address: '서울 테스트로 1', detailAddress: '안전아파트 제203호' })))
     expect(await screen.findByText('수정 완료')).toBeTruthy()
+  })
+  it('sends selected postcode evidence', async () => {
+    vi.mocked(listingsApi.one).mockResolvedValue(listing)
+    vi.mocked(listingsApi.update).mockResolvedValue(listing)
+    vi.stubGlobal('kakao', { Postcode: class {
+      constructor(private options: { oncomplete: (data: unknown) => void }) {}
+      open() { this.options.oncomplete({ address: '서울 송파구 잠실동 19', userSelectedType: 'J',
+        roadAddress: '', jibunAddress: '서울 송파구 잠실동 19', bcode: '1171010100',
+        sigunguCode: '11710', noSelected: 'N' }) }
+    } })
+    open('/listings/9/edit')
+    await screen.findByDisplayValue('서울 테스트로 1')
+    fireEvent.click(screen.getByRole('button', { name: '주소검색' }))
+    expect(screen.getByDisplayValue('서울 송파구 잠실동 19')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '수정 저장' }))
+    await waitFor(() => expect(listingsApi.update).toHaveBeenCalledWith(9,
+      expect.objectContaining({ addressSearchEvidence: expect.objectContaining({ bcode: '1171010100' }) })))
+  })
+  it('clears stored postcode evidence when the base address is edited', async () => {
+    vi.mocked(listingsApi.one).mockResolvedValue({ ...listing, addressSearchEvidence: {
+      selectedType: 'J', selectedAddress: '서울 테스트로 1', jibunAddress: '서울 테스트로 1',
+      bcode: '1171010100', sigunguCode: '11710', noSelected: 'N',
+    } })
+    vi.mocked(listingsApi.update).mockResolvedValue(listing)
+    open('/listings/9/edit')
+    fireEvent.change(await screen.findByDisplayValue('서울 테스트로 1'),
+      { target: { value: '서울 테스트로 2' } })
+    fireEvent.click(screen.getByRole('button', { name: '수정 저장' }))
+    await waitFor(() => expect(listingsApi.update).toHaveBeenCalledWith(9,
+      expect.objectContaining({ address: '서울 테스트로 2', addressSearchEvidence: null })))
   })
   it('does not render an edit form for someone else’s listing', async () => {
     vi.mocked(listingsApi.one).mockResolvedValue({ ...listing, registeredByUserId: 8 })

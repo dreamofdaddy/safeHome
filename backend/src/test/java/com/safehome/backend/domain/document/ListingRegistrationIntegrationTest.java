@@ -32,6 +32,50 @@ class ListingRegistrationIntegrationTest {
     @Autowired jakarta.persistence.EntityManager entityManager;
 
     @Test
+    void savesValidatedPostcodeEvidenceAndClearsItOnAddressEdit() throws Exception {
+        String token = signupAndLogin("postcode-" + UUID.randomUUID() + "@example.test");
+        String filename = UUID.randomUUID() + ".pdf";
+        String metadata = """
+            {"address":"서울 송파구 잠실동 19","detailAddress":"160동 101호",
+             "buildingType":"APARTMENT","transactionType":"JEONSE","depositAmount":200000000,
+             "addressSearchEvidence":{"selectedType":"J","selectedAddress":"서울 송파구 잠실동 19",
+               "jibunAddress":"서울 송파구 잠실동 19","bcode":"1171010100",
+               "sigunguCode":"11710","noSelected":"N"}}
+            """;
+        mvc.perform(multipart("/api/registry-documents/listings")
+                .file(new MockMultipartFile("metadata", "", "application/json", metadata.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .file(new MockMultipartFile("registryPdf", filename, "application/pdf", onePagePdf()))
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.listing.addressSearchEvidence.bcode").value("1171010100"));
+        var doc = documents.findAll().stream().filter(d -> filename.equals(d.getOriginalFilename())).findFirst().orElseThrow();
+        Long id = doc.getListingId();
+        entityManager.flush(); entityManager.clear();
+        assertThat(jdbc.queryForObject("SELECT address_search_bcode FROM listings WHERE id=?", String.class, id))
+                .isEqualTo("1171010100");
+        mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(metadata.replace("\"11710\",\"noSelected\"", "\"11530\",\"noSelected\"")))
+            .andExpect(status().isBadRequest());
+        mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(metadata.replace("\"address\":\"서울 송파구 잠실동 19\"",
+                        "\"address\":\"서울 송파구 잠실동 20\"")))
+            .andExpect(status().isBadRequest());
+        String manualEdit = """
+            {"address":"서울 송파구 잠실동 20","detailAddress":"160동 101호",
+             "buildingType":"APARTMENT","transactionType":"JEONSE","depositAmount":200000000}
+            """;
+        mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(manualEdit))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.addressSearchEvidence").value(org.hamcrest.Matchers.nullValue()));
+        entityManager.flush(); entityManager.clear();
+        assertThat(jdbc.queryForObject("SELECT address_search_bcode FROM listings WHERE id=?", String.class, id))
+                .isNull();
+    }
+
+    @Test
     void signupLoginThenStoreListingAndPrivatePdfWithoutCreatingProperty() throws Exception {
         String email = "listing-" + UUID.randomUUID() + "@example.test";
         String token = signupAndLogin(email);
