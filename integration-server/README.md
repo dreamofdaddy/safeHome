@@ -47,8 +47,8 @@ MCP 도구 resolve_building_unit은 같은 검증과 서비스로 Resolution을 
 - Backend BuildingEvidenceClient는 safehome.integration.enabled=true일 때만 등록됨
 
 Backend 연결 속성은 safehome.integration.base-url, safehome.integration.token이다.
-자동 분석 흐름에는 아직 연결하지 않았다. 현재 등기 판독 결과에는 법정동 코드와
-지상/지하 정보가 없어 이를 추정해 자동 전송하면 오매칭될 수 있다.
+자동 분석에서는 매물 주소 검색의 검증된 법정동 코드와 등기부·매물의 명시적 동·층·호를
+대조해 입력을 만들고, 판독 커밋 이후에만 호출한다. 정보가 부족하거나 충돌하면 호출하지 않는다.
 건축물 식별 결과를 위험점수로 자동 변환하지 않는다.
 
 ## 검증 상태와 제한

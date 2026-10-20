@@ -121,6 +121,8 @@ public class ListingService {
         codeService.getRequiredActiveCode("PROPERTY_TYPE", request.buildingType());
         var evidence = request.addressSearchEvidence() == null ? null
             : request.addressSearchEvidence().validatedFor(request.address());
+        if (!java.util.Objects.equals(listing.getAddressSearchEvidence(), evidence))
+            listing.setCurrentBuildingIdentificationId(null);
         listing.revise(request);
         listing.setAddressSearchEvidence(evidence);
         return ListingResponse.from(listing);

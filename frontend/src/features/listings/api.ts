@@ -1,5 +1,5 @@
 import { apiClient, unwrap } from '../../lib/api/client'
-import type { Listing, ListingMetadata, ListingRegistration, RegistryDocument, RegistryProcessing, SafetyResult } from '../../types/api'
+import type { BuildingIdentification, Listing, ListingMetadata, ListingRegistration, RegistryDocument, RegistryProcessing, SafetyResult } from '../../types/api'
 
 export const listingsApi = {
   mine: () => unwrap<Listing[]>(apiClient.get('/listings/mine')),
@@ -16,5 +16,6 @@ export const listingsApi = {
   processing: (id: number) => unwrap<RegistryProcessing>(apiClient.get(`/listings/${id}/registry-processing`)),
   startProcessing: (id: number) => unwrap<RegistryProcessing>(apiClient.post(`/listings/${id}/registry-processing`)),
   safetyResult: (id: number) => unwrap<SafetyResult>(apiClient.get(`/listings/${id}/safety-analysis`)),
+  buildingIdentification: (id: number) => unwrap<BuildingIdentification>(apiClient.get(`/listings/${id}/building-identification`)),
   analyze: (id: number) => unwrap<SafetyResult>(apiClient.post(`/listings/${id}/safety-analysis`)),
 }

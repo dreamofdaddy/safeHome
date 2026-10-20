@@ -18,4 +18,15 @@ public class RegistryAnalysisAsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    @Bean(name = "buildingIdentificationExecutor")
+    public ThreadPoolTaskExecutor buildingIdentificationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("building-identification-");
+        executor.initialize();
+        return executor;
+    }
 }

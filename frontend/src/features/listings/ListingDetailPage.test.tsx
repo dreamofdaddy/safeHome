@@ -4,10 +4,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ListingDetailPage } from './ListingDetailPage'
 import { listingsApi } from './api'
-import type { Listing, RegistryProcessing, SafetyResult } from '../../types/api'
+import type { BuildingIdentification, Listing, RegistryProcessing, SafetyResult } from '../../types/api'
 
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 7 } }) }))
-vi.mock('./api', () => ({ listingsApi: { one: vi.fn(), processing: vi.fn(), safetyResult: vi.fn(), analyze: vi.fn(), startProcessing: vi.fn(), remove: vi.fn() } }))
+vi.mock('./api', () => ({ listingsApi: { one: vi.fn(), processing: vi.fn(), safetyResult: vi.fn(), buildingIdentification: vi.fn(), analyze: vi.fn(), startProcessing: vi.fn(), remove: vi.fn() } }))
 vi.mock('recharts', () => ({ Cell: () => null, Pie: () => null, PieChart: () => null, ResponsiveContainer: () => null }))
 
 const listing = { id: 8, registeredByUserId: 7, address: '서울 테스트로 1', buildingType: 'HOUSE', transactionType: 'JEONSE', depositAmount: 200000000, status: 'REGISTRY_READY' } as Listing
@@ -22,6 +22,7 @@ beforeEach(() => {
   vi.mocked(listingsApi.one).mockResolvedValue(listing)
   vi.mocked(listingsApi.processing).mockResolvedValue({ listingId: 8, status: 'PARSED' } as RegistryProcessing)
   vi.mocked(listingsApi.safetyResult).mockRejectedValue(missing)
+  vi.mocked(listingsApi.buildingIdentification).mockResolvedValue({ executionStatus: 'NOT_REQUESTED', resolutionStatus: null } as BuildingIdentification)
 })
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 
@@ -82,5 +83,22 @@ describe('safety analysis state', () => {
     await waitFor(() => expect(vi.mocked(listingsApi.safetyResult).mock.calls.length).toBeGreaterThan(reads))
     expect(listingsApi.analyze).not.toHaveBeenCalled()
     expect(listingsApi.startProcessing).not.toHaveBeenCalled()
+  })
+  it('shows building call failure separately from an unchanged risk result', async () => {
+    vi.mocked(listingsApi.safetyResult).mockResolvedValue(safety)
+    vi.mocked(listingsApi.buildingIdentification).mockResolvedValue({
+      executionStatus: 'CALL_FAILED', resolutionStatus: null, reason: 'INTEGRATION_UNAVAILABLE',
+    } as BuildingIdentification)
+    open()
+    expect(await screen.findByText('건축물대장 조회에 실패했습니다. 현재 식별 결과가 없습니다.')).toBeTruthy()
+    expect(screen.getByText('위험도 낮음')).toBeTruthy()
+  })
+  it('distinguishes unverified identification from a failed call', async () => {
+    vi.mocked(listingsApi.buildingIdentification).mockResolvedValue({
+      executionStatus: 'COMPLETED', resolutionStatus: 'UNVERIFIABLE',
+    } as BuildingIdentification)
+    open()
+    expect(await screen.findByText('건축물대장 자료로는 해당 호를 확정할 수 없습니다.')).toBeTruthy()
+    expect(screen.queryByText('건축물대장 조회에 실패했습니다. 현재 식별 결과가 없습니다.')).toBeNull()
   })
 })

@@ -58,3 +58,14 @@ export interface AddressSearchEvidence {
 }
 
 export interface ListingRegistration { listing: Listing; document: RegistryDocument; message: string }
+
+export type BuildingExecutionStatus = 'NOT_REQUESTED' | 'PENDING' | 'RUNNING' | 'COMPLETED' |
+  'INPUT_INCOMPLETE' | 'INPUT_CONFLICT' | 'CALL_FAILED' | 'DISABLED' | 'SUPERSEDED'
+export type BuildingResolutionStatus = 'MATCHED' | 'NOT_FOUND' | 'AMBIGUOUS' | 'UNVERIFIABLE'
+export interface BuildingIdentification {
+  id: number | null; registrySnapshotId: number | null;
+  executionStatus: BuildingExecutionStatus; resolutionStatus: BuildingResolutionStatus | null;
+  reason: string | null; candidateCount: number | null;
+  managementNumber: string | null; parentManagementNumber: string | null;
+  unitName: string | null; source: string | null; queriedAt: string | null;
+}

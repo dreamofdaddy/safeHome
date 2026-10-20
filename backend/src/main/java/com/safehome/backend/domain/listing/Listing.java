@@ -19,6 +19,9 @@ public class Listing {
     @Column(name = "risk_analysis_id")
     private Long riskAnalysisId;
 
+    @Column(name = "current_building_identification_id")
+    private Long currentBuildingIdentificationId;
+
     @Column(name = "registered_by_user_id", nullable = false)
     private Long registeredByUserId;
 
@@ -154,6 +157,11 @@ public class Listing {
         return address + (detailAddress == null || detailAddress.isBlank() ? "" : " " + detailAddress.trim());
     }
     public void revise(com.safehome.backend.domain.document.dto.ListingRegistrationRequest request) {
+        if (!address.equals(request.address().trim())
+                || !java.util.Objects.equals(detailAddress,
+                    request.detailAddress() == null ? null : request.detailAddress().trim())) {
+            currentBuildingIdentificationId = null;
+        }
         address = request.address().trim();
         detailAddress = request.detailAddress() == null ? null : request.detailAddress().trim();
         buildingName = request.buildingName(); buildingType = request.buildingType();
@@ -173,6 +181,9 @@ public class Listing {
     public Long getRiskAnalysisId() {
         return riskAnalysisId;
     }
+
+    public Long getCurrentBuildingIdentificationId() { return currentBuildingIdentificationId; }
+    public void setCurrentBuildingIdentificationId(Long id) { currentBuildingIdentificationId = id; }
 
     public Long getRegisteredByUserId() {
         return registeredByUserId;

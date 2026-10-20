@@ -15,6 +15,7 @@ import com.safehome.backend.domain.registry.RegistryRight;
 import com.safehome.backend.domain.registry.RegistryRightRepository;
 import com.safehome.backend.domain.registry.RegistrySnapshot;
 import com.safehome.backend.domain.registry.RegistrySnapshotRepository;
+import com.safehome.backend.integration.building.BuildingIdentificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,22 +29,24 @@ public class DocumentAnalysisPersistenceService {
     private final RegistryRightRepository rights;
     private final OwnerIdentityService identities;
     private final RegistryExtractionValidator validator;
+    private final BuildingIdentificationService buildingIdentifications;
 
     public DocumentAnalysisPersistenceService(RegistryDocumentRepository documents,
             ListingRepository listings, PropertyRepository properties,
             RegistrySnapshotRepository snapshots, PropertyOwnerRepository owners,
             RegistryRightRepository rights, OwnerIdentityService identities,
-            RegistryExtractionValidator validator) {
+            RegistryExtractionValidator validator, BuildingIdentificationService buildingIdentifications) {
         this.documents = documents; this.listings = listings; this.properties = properties;
         this.snapshots = snapshots; this.owners = owners; this.rights = rights;
         this.identities = identities; this.validator = validator;
+        this.buildingIdentifications = buildingIdentifications;
     }
 
     @Transactional
     public void complete(Long documentId, ParsedRegistryDocument parsed, String provider, String model) {
         RegistryDocument document = documents.findById(documentId).orElseThrow();
         if (!"PROCESSING".equals(document.getStatus())) return;
-        Listing listing = listings.findById(document.getListingId()).orElseThrow();
+        Listing listing = listings.findByIdForUpdate(document.getListingId()).orElseThrow();
         VerifiedRegistryDocument verified = validator.validate(parsed, listing);
 
         Property property = properties.findByRegistryPropertyNumber(verified.registryPropertyNumber())
@@ -70,6 +73,8 @@ public class DocumentAnalysisPersistenceService {
         listing.markRegistryParsed(property.getId());
         document.markParsed(property.getId(), snapshot.getId(),
             verified.registryPropertyNumber(), provider, model);
+        snapshots.flush();
+        buildingIdentifications.prepare(listing, snapshot.getId(), documentId, verified);
     }
 
     private String fallback(String parsed, String original) {
