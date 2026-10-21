@@ -203,3 +203,12 @@ Get-Content 'D:/safehome-data/integration/call-history/building-calls-2026-10-21
 - https://spring.io/blog/2026/06/12/spring-ai-2-0-0-GA-available-now/
 - https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-starter-docs.html
 - https://www.data.go.kr/data/15134735/openapi.do
+
+
+### 2026-10-21 검증 화면 로그인 연결 보완
+
+검증 Frontend는 http://127.0.0.1:5174를 사용한다. 8180 Backend 기동 시
+SAFEHOME_CORS_ALLOWED_ORIGINS=http://127.0.0.1:5174를 지정해야 로그인 POST가 허용된다.
+일반 개발용 localhost:5173 기본 허용 목록만 사용하면 403이 발생한다.
+검증 주소의 사전 요청 HTTP 200 및 다른 외부 주소의 HTTP 403을 확인했다.
+검증 DB·PDF 경로와 인증 강제 설정은 유지하며 일반 개발 환경과 혼용하지 않는다.
