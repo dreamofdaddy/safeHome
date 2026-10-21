@@ -83,3 +83,12 @@ PDF와 파서 출력은 합성 자료이므로 실제 등기부
 실제 매물의 저장된 위험 분석은 없으므로, 위험 결과 유지 여부는 Backend 기존 장애 검사와
 Frontend의 CALL_FAILED·COMPLETED/UNVERIFIABLE 회귀 검사로 확인했다.
 Frontend 전체 36개 검사와 빌드가 통과했으며 재판독이나 위험 분석 시작 요청은 보내지 않았다.
+
+## 2026-10-21 외부 호출 이력 연결
+
+Backend 작업자는 식별 이력 번호를 `X-SafeHome-Identification-Id`로 전달한다.
+Integration Server는 작업 UUID를 생성하고 날짜별 외부 호출 이력의 `job.identificationId`에 번호를 저장한다.
+REST 응답 헤더 `X-SafeHome-Integration-Job-Id`에 작업 UUID가 있으며 응답 본문과 DB 구조는 유지한다.
+Backend 이력의 재시도는 같은 식별 번호·새 UUID로 구분할 수 있다. MCP/직접 호출은 식별 번호가 없을 수 있다.
+로컬 기록은 저장소 밖 `D:/safehome-data/integration/call-history`에 보관하며 실패 시 식별/위험 결과를 바꾸지 않는다.
+소급 이력은 만들지 않는다. 기존 실제 매물은 재실행하지 않았고 합성 테스트와 기존 결과 조회로 연결 변경을 검증했다.

@@ -12,16 +12,34 @@ import java.util.concurrent.Semaphore;
 
 public final class BuildingResolver {
     private final BuildingHubClient client;
+    private final CallHistory.Sink history;
     private final Semaphore inFlight = new Semaphore(2);
-    public BuildingResolver(BuildingHubClient client) { this.client = client; }
+    public BuildingResolver(BuildingHubClient client) { this(client, CallHistory.NONE); }
+    public BuildingResolver(BuildingHubClient client, CallHistory.Sink history) { this.client = client; this.history = history; }
     public Resolution resolve(BuildingQuery query) {
+        return resolve(query, CallHistory.Job.create(null, CallHistory.EntryPoint.DIRECT));
+    }
+    public Resolution resolve(BuildingQuery query, CallHistory.Job job) {
+        long started = System.nanoTime();
+        CallHistory.emit(history, new CallHistory.Event(Instant.now(), job, CallHistory.Kind.JOB_STARTED,
+                null, null, null, CallHistory.Outcome.STARTED, 0, null, null, null));
+        Resolution result;
+        try { result = collect(query, job); }
+        catch (RuntimeException ignored) { result = Resolution.unavailable("UNEXPECTED_FAILURE"); }
+        CallHistory.emit(history, new CallHistory.Event(Instant.now(), job, CallHistory.Kind.JOB_FINISHED,
+                null, null, null, result.collectionComplete() || "PARENT_NOT_CORROBORATED".equals(result.reason())
+                        ? CallHistory.Outcome.COMPLETED : CallHistory.Outcome.FAILURE,
+                CallHistory.elapsed(started), result.reason(), result.status(), result.collectionComplete()));
+        return result;
+    }
+    private Resolution collect(BuildingQuery query, CallHistory.Job job) {
         if (!inFlight.tryAcquire()) return Resolution.unavailable("LOCAL_CAPACITY_EXCEEDED");
         Instant queriedAt = Instant.now();
         long deadline = System.nanoTime() + Duration.ofSeconds(120).toNanos();
         try {
-            var expos = client.fetchAll(BuildingHubClient.Operation.EXPOS, query, deadline);
-            var title = client.fetchAll(BuildingHubClient.Operation.TITLE, query, deadline);
-            var basis = client.fetchAll(BuildingHubClient.Operation.BASIS, query, deadline);
+            var expos = client.fetchAll(BuildingHubClient.Operation.EXPOS, query, deadline, job);
+            var title = client.fetchAll(BuildingHubClient.Operation.TITLE, query, deadline, job);
+            var basis = client.fetchAll(BuildingHubClient.Operation.BASIS, query, deadline, job);
             // The Basis record explicitly links its PK to the parent Title PK.
             // Expos has no parent-PK field in the published contract.
             Map<String, BuildingUnit> basisById = new HashMap<>();

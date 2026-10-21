@@ -65,7 +65,7 @@ class BuildingIdentificationFlowIntegrationTest {
                 List.of()));
         when(parser.provider()).thenReturn("TEST");
         when(parser.model()).thenReturn("fixture");
-        when(buildingClient.resolve(any())).thenAnswer(invocation -> {
+        when(buildingClient.resolve(any(), org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation -> {
             BuildingQuery query = invocation.getArgument(0);
             assertThat(query.floorNumber()).isEqualTo(1);
             assertThat(query.unitNumber()).isEqualTo("101");
@@ -131,7 +131,7 @@ class BuildingIdentificationFlowIntegrationTest {
                 List.of()));
         when(parser.provider()).thenReturn("TEST");
         when(parser.model()).thenReturn("synthetic-fixture");
-        when(buildingClient.resolve(any())).thenReturn(Resolution.unavailable("INTEGRATION_UNAVAILABLE"));
+        when(buildingClient.resolve(any(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(Resolution.unavailable("INTEGRATION_UNAVAILABLE"));
 
         mvc.perform(post("/api/listings/{id}/registry-processing", listingId)
                 .header("Authorization", "Bearer " + token)).andExpect(status().isAccepted());

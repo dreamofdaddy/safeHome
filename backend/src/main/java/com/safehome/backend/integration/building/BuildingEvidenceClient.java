@@ -28,9 +28,14 @@ public class BuildingEvidenceClient {
                 .defaultHeader("X-SafeHome-Integration-Token", token).build();
     }
     public Resolution resolve(BuildingQuery query) {
+        return resolve(query, null);
+    }
+    public Resolution resolve(BuildingQuery query, Long identificationId) {
         try {
-            ApiResponse<Resolution> response = client.post().uri("/internal/v1/buildings/resolve")
-                    .body(query).retrieve().body(new ParameterizedTypeReference<ApiResponse<Resolution>>() {});
+            var request = client.post().uri("/internal/v1/buildings/resolve");
+            if (identificationId != null) request.header("X-SafeHome-Identification-Id", identificationId.toString());
+            ApiResponse<Resolution> response = request.body(query).retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponse<Resolution>>() {});
             if (response == null || !response.success() || response.data() == null
                     || response.data().status() == null || response.data().queriedAt() == null)
                 return Resolution.unavailable("INVALID_INTEGRATION_RESPONSE");

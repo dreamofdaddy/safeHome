@@ -23,7 +23,7 @@ public class BuildingIdentificationWorker {
         try {
             BuildingEvidenceClient client = clients.getIfAvailable();
             resolution = client == null ? Resolution.unavailable("INTEGRATION_UNAVAILABLE")
-                    : client.resolve(query);
+                    : client.resolve(query, id);
             if (resolution == null) resolution = Resolution.unavailable("INVALID_INTEGRATION_RESPONSE");
         } catch (RuntimeException ignored) {
             // Do not log client exceptions: request headers can contain credentials.

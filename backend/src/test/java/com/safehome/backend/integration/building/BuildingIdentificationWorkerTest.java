@@ -22,7 +22,7 @@ class BuildingIdentificationWorkerTest {
         when(clients.getIfAvailable()).thenReturn(client);
         Resolution result = new Resolution(Resolution.Status.UNVERIFIABLE, List.of(),
                 "PARENT_NOT_CORROBORATED", "MOLIT_BUILDING_HUB", Instant.now(), false);
-        when(client.resolve(query)).thenReturn(result);
+        when(client.resolve(query, 1L)).thenReturn(result);
         worker.process(1L);
         verify(store).finish(1L, result, false);
     }
@@ -32,7 +32,7 @@ class BuildingIdentificationWorkerTest {
         when(store.claim(2L)).thenReturn(query);
         when(clients.getIfAvailable()).thenReturn(client);
         Resolution unavailable = Resolution.unavailable("INTEGRATION_UNAVAILABLE");
-        when(client.resolve(query)).thenReturn(unavailable);
+        when(client.resolve(query, 2L)).thenReturn(unavailable);
         worker.process(2L);
         verify(store).finish(2L, unavailable, true);
     }
