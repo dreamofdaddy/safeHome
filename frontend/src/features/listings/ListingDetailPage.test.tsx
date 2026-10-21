@@ -101,4 +101,21 @@ describe('safety analysis state', () => {
     expect(await screen.findByText('건축물대장 자료로는 해당 호를 확정할 수 없습니다.')).toBeTruthy()
     expect(screen.queryByText('건축물대장 조회에 실패했습니다. 현재 식별 결과가 없습니다.')).toBeNull()
   })
+  it('explains missing supplier floor data without exposing internal codes or changing saved analysis', async () => {
+    vi.mocked(listingsApi.safetyResult).mockResolvedValue(safety)
+    vi.mocked(listingsApi.buildingIdentification).mockResolvedValue({
+      id: 2, executionStatus: 'COMPLETED', resolutionStatus: 'UNVERIFIABLE',
+      reason: 'CANDIDATE_FLOOR_NUMBER_UNAVAILABLE',
+    } as BuildingIdentification)
+    const { container } = open()
+    expect(await screen.findByText(/공급기관 층 정보 부족으로 확인 불가/)).toBeTruthy()
+    expect(screen.getByText('건축물대장 조회 완료')).toBeTruthy()
+    expect(screen.getByRole('region', { name: '안전성 분석 결과' })).toBeTruthy()
+    expect(screen.getByText('위험도 낮음')).toBeTruthy()
+    expect(screen.getByText('등기부 판독이 완료되었습니다.')).toBeTruthy()
+    expect(container.textContent).not.toContain('CANDIDATE_FLOOR_NUMBER_UNAVAILABLE')
+    expect(screen.queryByText('건축물대장 조회에 실패했습니다. 현재 식별 결과가 없습니다.')).toBeNull()
+    expect(listingsApi.analyze).not.toHaveBeenCalled()
+    expect(listingsApi.startProcessing).not.toHaveBeenCalled()
+  })
 })

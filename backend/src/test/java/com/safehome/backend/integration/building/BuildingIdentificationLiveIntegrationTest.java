@@ -100,8 +100,11 @@ class BuildingIdentificationLiveIntegrationTest {
                 .andReturn().getResponse().getContentAsString()).path("data");
         assertThat(building.path("executionStatus").stringValue()).isEqualTo("COMPLETED");
         assertThat(building.path("source").stringValue()).isEqualTo("MOLIT_BUILDING_HUB");
-        assertThat(building.path("resolutionStatus").stringValue())
-                .isIn("MATCHED", "NOT_FOUND", "AMBIGUOUS", "UNVERIFIABLE");
+        assertThat(building.path("resolutionStatus").stringValue()).isEqualTo("MATCHED");
+        assertThat(building.path("managementNumber").stringValue()).isEqualTo("1018152541");
+        assertThat(building.path("parentManagementNumber").stringValue()).isEqualTo("1018112940");
+        assertThat(jdbc.queryForObject("SELECT management_number FROM building_identifications WHERE listing_id=?",
+                String.class, listingId)).isEqualTo("1018152541");
         assertThat(jdbc.queryForObject("SELECT risk_analysis_id FROM listings WHERE id=?", Long.class, listingId))
                 .isNull();
         System.out.println("LIVE_BUILDING_FLOW listingId=" + listingId + " result="

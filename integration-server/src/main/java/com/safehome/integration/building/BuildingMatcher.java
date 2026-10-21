@@ -47,6 +47,7 @@ public final class BuildingMatcher {
         if (!complete) return Resolution.unavailable("INCOMPLETE_COLLECTION");
         List<BuildingUnit> matched = new ArrayList<>();
         boolean unknown = false;
+        boolean onlyMissingFloor = true;
         for (BuildingUnit unit : units) {
             // Missing cadastral fields cannot establish exclusion.
             String[][] pairs = {{query.sigunguCd(), unit.sigunguCd()}, {query.bjdongCd(), unit.bjdongCd()},
@@ -70,19 +71,25 @@ public final class BuildingMatcher {
                     || (label.floor() != null && unit.floorNumber() != null
                     && !label.floor().equals(unit.floorNumber())))) {
                 unknown = true;
+                onlyMissingFloor = false;
                 continue;
             }
             if (unit.floorGroundType() != null && unit.floorGroundType() != query.floorGroundType()) continue;
             if (unit.floorNumber() != null && !unit.floorNumber().equals(query.floorNumber())) continue;
-            if (missing || unit.floorGroundType() == null || unit.floorNumber() == null
+            boolean otherFieldsMissing = missing || unit.floorGroundType() == null
                     || label == null
                     || unit.managementNumber() == null || unit.managementNumber().isBlank()
                     || unit.parentManagementNumber() == null || unit.parentManagementNumber().isBlank()
-                    || unit.address() == null || unit.address().isBlank()) unknown = true;
+                    || unit.address() == null || unit.address().isBlank();
+            if (otherFieldsMissing || unit.floorNumber() == null) {
+                unknown = true;
+                if (otherFieldsMissing) onlyMissingFloor = false;
+            }
             else matched.add(unit);
         }
         if (unknown) return new Resolution(Resolution.Status.UNVERIFIABLE, List.of(),
-                "UNINTERPRETABLE_CANDIDATE", "MOLIT_BUILDING_HUB", queriedAt, true);
+                onlyMissingFloor ? "CANDIDATE_FLOOR_NUMBER_UNAVAILABLE" : "UNINTERPRETABLE_CANDIDATE",
+                "MOLIT_BUILDING_HUB", queriedAt, true);
         Resolution.Status status = matched.isEmpty() ? Resolution.Status.NOT_FOUND
                 : matched.size() == 1 ? Resolution.Status.MATCHED : Resolution.Status.AMBIGUOUS;
         return new Resolution(status, matched, null, "MOLIT_BUILDING_HUB", queriedAt, true);

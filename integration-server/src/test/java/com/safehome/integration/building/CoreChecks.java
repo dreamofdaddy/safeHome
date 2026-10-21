@@ -54,6 +54,23 @@ public final class CoreChecks {
                 "address", null, null, BuildingQuery.Ground.ABOVE_GROUND, null, "101호", "villa");
         check(matcher.match(VILLA, List.of(floorMissing), true, Instant.now()).status()
                 == Resolution.Status.UNVERIFIABLE, "unit 101 cannot supply missing API floor");
+        var floorUnavailable = matcher.match(VILLA, List.of(floorMissing), true, Instant.now());
+        check("CANDIDATE_FLOOR_NUMBER_UNAVAILABLE".equals(floorUnavailable.reason()),
+                "missing upstream floor has a safe specific diagnostic");
+        check(floorUnavailable.collectionComplete() && floorUnavailable.candidates().isEmpty(),
+                "missing floor is completed collection without a confirmed match");
+        check(matcher.match(VILLA, List.of(villa, floorMissing), true, Instant.now()).status()
+                == Resolution.Status.UNVERIFIABLE, "a valid unit cannot override a competitor with missing floor");
+        var floorAndGroundMissing = unitAt("incomplete", null, null, "101호");
+        check("UNINTERPRETABLE_CANDIDATE".equals(matcher.match(VILLA,
+                List.of(floorAndGroundMissing), true, Instant.now()).reason()),
+                "multiple missing fields keep the general diagnostic");
+        var zeroFloorPage = BuildingHubClient.parse(("<response><header><resultCode>00</resultCode>"
+                + "</header><body><pageNo>1</pageNo><totalCount>1</totalCount><items><item>"
+                + "<mgmBldrgstPk>synthetic-zero-floor</mgmBldrgstPk><flrGbCd>20</flrGbCd>"
+                + "<flrNo>0</flrNo><hoNm>202호</hoNm></item></items></body></response>").getBytes(StandardCharsets.UTF_8));
+        check(zeroFloorPage.units().getFirst().floorNumber() == null,
+                "upstream zero floor is unavailable and never inferred from room 202");
         var secondFloor = new BuildingUnit("second", "parent", "11530", "10700", "0", "0355", "0018",
                 "address", null, null, BuildingQuery.Ground.ABOVE_GROUND, 2, "101호", "villa");
         check(matcher.match(VILLA, List.of(secondFloor), true, Instant.now()).status()
@@ -209,6 +226,7 @@ public final class CoreChecks {
         String noGround = ok.replace("<flrGbCd>20</flrGbCd>", "<flrGbCd>99</flrGbCd>");
         check(matcher.match(VILLA, BuildingHubClient.parse(noGround.getBytes(StandardCharsets.UTF_8)).units(),
                 true, Instant.now()).status() == Resolution.Status.UNVERIFIABLE, "unknown upstream ground");
+        ResponseDiagnosticChecks.run();
     }
     private static BuildingUnit unit(String id, String parent, String dong, String ho) {
         return new BuildingUnit(id, parent, "11530", "10700", "0", "0355", "0018",
@@ -231,5 +249,77 @@ public final class CoreChecks {
             return;
         }
         throw new AssertionError(name + ": no error");
+    }
+
+    private static final class ResponseDiagnosticChecks {
+        private static final String SECRET = "sensitive-response-marker";
+        private static final BuildingQuery QUERY = new BuildingQuery("11530", "10700", "0",
+                "0355", "0018", null, BuildingQuery.Ground.ABOVE_GROUND, 1, "101");
+        private static final String EMPTY = "<response><header><resultCode>00</resultCode></header>"
+                + "<body><pageNo>1</pageNo><totalCount>0</totalCount><items/></body></response>";
+
+        static void run() {
+            check(BuildingHubClient.parse(bytes(EMPTY)).totalCount() == 0, "valid zero response preserved");
+            expectCode("MALFORMED_RESPONSE_XML", () -> BuildingHubClient.parse(bytes("<response>" + SECRET)));
+            expectCode("MALFORMED_RESPONSE_PAGINATION", () -> BuildingHubClient.parse(
+                    bytes(EMPTY.replace("<pageNo>1</pageNo>", ""))));
+            expectCode("MALFORMED_RESPONSE_PAGINATION", () -> BuildingHubClient.parse(
+                    bytes(EMPTY.replace("<totalCount>0</totalCount>", "<totalCount>unknown</totalCount>"))));
+            expectCode("MALFORMED_RESPONSE_PAGINATION", () -> BuildingHubClient.parse(
+                    bytes(EMPTY.replace("<pageNo>1</pageNo>", "<pageNo>1</pageNo><pageNo>1</pageNo>"))));
+            expectCode("MALFORMED_RESPONSE_PAGINATION", () -> BuildingHubClient.parse(
+                    bytes(EMPTY.replace("<totalCount>0</totalCount>", "<totalCount>9999999999999</totalCount>"))));
+            expectCode("MALFORMED_RESPONSE_XML", () -> BuildingHubClient.parse(bytes(
+                    "<!DOCTYPE x [<!ENTITY e SYSTEM 'file:///secret'>]><x>&e;</x>")));
+            for (var operation : BuildingHubClient.Operation.values()) {
+                AtomicInteger calls = new AtomicInteger();
+                BuildingHubClient client = new BuildingHubClient("fake-key", uri -> {
+                    calls.incrementAndGet();
+                    return bytes("<response>" + SECRET);
+                });
+                expectCode(operation.name() + "_PAGE_1_MALFORMED_RESPONSE_XML",
+                        () -> client.fetchAll(operation, QUERY, deadline()));
+                check(calls.get() == 1, "malformed data is not retried");
+            }
+            AtomicInteger calls = new AtomicInteger();
+            BuildingHubClient unavailable = new BuildingHubClient("fake-key", uri -> {
+                calls.incrementAndGet();
+                throw new UpstreamException("UPSTREAM_HTTP_503", true);
+            });
+            expectCode("EXPOS_PAGE_1_UPSTREAM_HTTP_503",
+                    () -> unavailable.fetchAll(BuildingHubClient.Operation.EXPOS, QUERY, deadline()));
+            check(calls.get() == 2, "HTTP 503 retry limit preserved");
+            calls.set(0);
+            BuildingHubClient denied = new BuildingHubClient("fake-key", uri -> {
+                calls.incrementAndGet();
+                return bytes("<OpenAPI_ServiceResponse><returnReasonCode>30</returnReasonCode>"
+                        + "</OpenAPI_ServiceResponse>");
+            });
+            expectCode("TITLE_PAGE_1_UPSTREAM_REJECTED",
+                    () -> denied.fetchAll(BuildingHubClient.Operation.TITLE, QUERY, deadline()));
+            check(calls.get() == 1, "authentication rejection is not retried");
+            BuildingHubClient pageTwo = new BuildingHubClient("fake-key", uri ->
+                    uri.getQuery().contains("pageNo=1&") ? bytes(EMPTY
+                            .replace("<totalCount>0</totalCount>", "<totalCount>2</totalCount>")
+                            .replace("<items/>", "<items><item><mgmBldrgstPk>one</mgmBldrgstPk></item></items>"))
+                            : bytes("<response>" + SECRET));
+            expectCode("BASIS_PAGE_2_MALFORMED_RESPONSE_XML",
+                    () -> pageTwo.fetchAll(BuildingHubClient.Operation.BASIS, QUERY, deadline()));
+        }
+        private static long deadline() { return System.nanoTime() + Duration.ofSeconds(30).toNanos(); }
+        private static byte[] bytes(String value) { return value.getBytes(StandardCharsets.UTF_8); }
+        private static void expectCode(String code, Runnable action) {
+            try { action.run(); }
+            catch (UpstreamException e) {
+                check(code.equals(e.getMessage()), "expected " + code + " received " + e.getMessage());
+                check(!e.getMessage().contains(SECRET) && !e.getMessage().contains("fake-key")
+                        && e.getCause() == null, "response and credentials excluded");
+                return;
+            }
+            throw new AssertionError("Expected " + code);
+        }
+        private static void check(boolean condition, String description) {
+            CoreChecks.check(condition, description);
+        }
     }
 }

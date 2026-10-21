@@ -71,7 +71,11 @@ public final class BuildingHubClient {
                 pace();
                 return parse(transport.get(uri));
             } catch (UpstreamException e) {
-                if (!e.retryable() || attempt >= 1) throw e;
+                if (!e.retryable() || attempt >= 1) {
+                    // Only fixed operation names, page numbers and safe codes are retained.
+                    throw new UpstreamException(operation.name() + "_PAGE_" + page + "_" + e.getMessage(),
+                            e.retryable());
+                }
                 pause(300);
             }
         }
@@ -90,6 +94,7 @@ public final class BuildingHubClient {
         }
     }
     static AllPages.Page parse(byte[] bytes) {
+        String stage = "XML_SETUP";
         try {
             if (bytes == null || bytes.length > 2_000_000) throw new UpstreamException("RESPONSE_SIZE", false);
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -102,15 +107,19 @@ public final class BuildingHubClient {
             factory.setExpandEntityReferences(false);
             var builder = factory.newDocumentBuilder();
             builder.setErrorHandler(new DefaultHandler());
+            stage = "XML";
             Element root = builder.parse(new ByteArrayInputStream(bytes)).getDocumentElement();
+            stage = "HEADER";
             String code = value(root, "resultCode");
             if (code == null) code = value(root, "returnReasonCode");
             if (!"00".equals(code) && !"0".equals(code)) {
                 boolean retry = "01".equals(code) || "05".equals(code) || "23".equals(code);
                 throw new UpstreamException("UPSTREAM_REJECTED", retry);
             }
+            stage = "PAGINATION";
             int page = Integer.parseInt(value(root, "pageNo"));
             int total = Integer.parseInt(value(root, "totalCount"));
+            stage = "ITEMS";
             NodeList items = root.getElementsByTagName("item");
             List<BuildingUnit> units = new ArrayList<>();
             for (int i = 0; i < items.getLength(); i++) {
@@ -132,7 +141,7 @@ public final class BuildingHubClient {
             }
             return new AllPages.Page(page, total, units);
         } catch (UpstreamException e) { throw e; }
-        catch (Exception e) { throw new UpstreamException("MALFORMED_RESPONSE", false); }
+        catch (Exception e) { throw new UpstreamException("MALFORMED_RESPONSE_" + stage, false); }
     }
     private static String value(Element element, String tag) {
         NodeList nodes = element.getElementsByTagName(tag);

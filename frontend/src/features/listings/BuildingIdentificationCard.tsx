@@ -20,10 +20,17 @@ const resolutionText: Record<NonNullable<BuildingIdentification['resolutionStatu
 }
 
 export function BuildingIdentificationCard({ result }: { result: BuildingIdentification }) {
+  const completed = result.executionStatus === 'COMPLETED'
+  const missingFloor = completed && result.resolutionStatus === 'UNVERIFIABLE'
+    && result.reason === 'CANDIDATE_FLOOR_NUMBER_UNAVAILABLE'
   return <section className={panel} role="region" aria-label="건축물 식별 상태">
     <h2 className="text-xl font-extrabold">건축물 식별</h2>
-    <p className="mt-3 text-sm text-slate-700">{result.executionStatus === 'COMPLETED' && result.resolutionStatus
+    {completed && <p className="mt-3 text-sm font-bold text-slate-700">건축물대장 조회 완료</p>}
+    <p className="mt-3 text-sm text-slate-700">{completed && result.resolutionStatus
       ? resolutionText[result.resolutionStatus] : executionText[result.executionStatus]}</p>
+    {missingFloor && <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+      공급기관 층 정보 부족으로 확인 불가: 건축물대장에 유효한 층번호가 없어 같은 호인지 확정할 수 없습니다. 호수만으로 층을 추정하지 않습니다.
+    </p>}
     {result.executionStatus === 'COMPLETED' && result.resolutionStatus === 'MATCHED' && result.managementNumber &&
       <p className="mt-2 text-xs text-slate-500">건축물대장 관리번호 {result.managementNumber}{result.unitName ? ` · ${result.unitName}` : ''}</p>}
     <p className="mt-3 text-xs text-slate-500">건축물 식별은 등기부 위험 점수·등급과 별도로 표시됩니다.</p>
