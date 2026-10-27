@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$SkipInfrastructure
+    [switch]$SkipInfrastructure,
+    [string]$ConfigFile = $env:SAFEHOME_CONFIG_FILE
 )
 
 Set-StrictMode -Version Latest
@@ -76,38 +77,55 @@ function Wait-ForEndpoint {
         Start-Sleep -Seconds 2
     } while ((Get-Date) -lt $deadline)
 
-    $errorLog = Join-Path $LogDir "$Name.err.log"
-    if (Test-Path -LiteralPath $errorLog) {
-        Write-Host "[$Name] recent error log:" -ForegroundColor Red
-        Get-Content -LiteralPath $errorLog -Tail 30
-    }
+    Write-Host "[$Name] check logs in $LogDir; do not share secrets." -ForegroundColor Red
     throw "[$Name] did not become ready within $TimeoutSeconds seconds."
 }
 
-if (-not $SkipInfrastructure) {
-    Write-Host '[infrastructure] starting PostgreSQL and Redis' -ForegroundColor Cyan
-    Push-Location $ProjectRoot
-    try {
-        docker compose up -d
-        if ($LASTEXITCODE -ne 0) { throw 'docker compose up failed.' }
-    }
-    finally {
-        Pop-Location
-    }
+if ([string]::IsNullOrWhiteSpace($ConfigFile)) {
+    $ConfigFile = 'D:\safehome-data\config\safehome-local.yml'
 }
+if (-not (Test-Path -LiteralPath $ConfigFile -PathType Leaf)) {
+    throw 'Shared config file not found. Supply -ConfigFile with an existing local YAML file.'
+}
+$resolvedConfig = (Resolve-Path -LiteralPath $ConfigFile).ProviderPath
+$previousConfig = $env:SAFEHOME_CONFIG_FILE
+try {
+    $env:SAFEHOME_CONFIG_FILE = $resolvedConfig
+    if (-not $SkipInfrastructure) {
+        Write-Host '[infrastructure] starting PostgreSQL and Redis' -ForegroundColor Cyan
+        Push-Location $ProjectRoot
+        try {
+            docker compose up -d
+            if ($LASTEXITCODE -ne 0) { throw 'docker compose up failed.' }
+        }
+        finally {
+            Pop-Location
+        }
+    }
 
-Start-ManagedProcess -Name 'backend' `
-    -WorkingDirectory (Join-Path $ProjectRoot 'backend') `
-    -Command 'gradlew.bat bootRun' -Port 8080 `
-    -HealthUri 'http://localhost:8080/actuator/health'
+    Start-ManagedProcess -Name 'integration' `
+        -WorkingDirectory (Join-Path $ProjectRoot 'integration-server') `
+        -Command 'gradlew.bat bootRun' -Port 8090 `
+        -HealthUri 'http://localhost:8090/actuator/health'
+    Wait-ForEndpoint -Name 'integration' -Uri 'http://localhost:8090/actuator/health' -TimeoutSeconds 120
 
-Start-ManagedProcess -Name 'frontend' `
-    -WorkingDirectory (Join-Path $ProjectRoot 'frontend') `
-    -Command 'npm run dev' -Port 5173 `
-    -HealthUri 'http://localhost:5173'
+    Start-ManagedProcess -Name 'backend' `
+        -WorkingDirectory (Join-Path $ProjectRoot 'backend') `
+        -Command 'gradlew.bat bootRun' -Port 8080 `
+        -HealthUri 'http://localhost:8080/actuator/health'
 
-Wait-ForEndpoint -Name 'backend' -Uri 'http://localhost:8080/actuator/health' -TimeoutSeconds 90
-Wait-ForEndpoint -Name 'frontend' -Uri 'http://localhost:5173' -TimeoutSeconds 45
+    Start-ManagedProcess -Name 'frontend' `
+        -WorkingDirectory (Join-Path $ProjectRoot 'frontend') `
+        -Command 'npm run dev' -Port 5173 `
+        -HealthUri 'http://localhost:5173'
 
-Write-Host ''
-& (Join-Path $PSScriptRoot 'status-dev.ps1')
+    Wait-ForEndpoint -Name 'backend' -Uri 'http://localhost:8080/actuator/health' -TimeoutSeconds 90
+    Wait-ForEndpoint -Name 'frontend' -Uri 'http://localhost:5173' -TimeoutSeconds 45
+
+    Write-Host ''
+    & (Join-Path $PSScriptRoot 'status-dev.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'One or more development services are not ready.' }
+}
+finally {
+    $env:SAFEHOME_CONFIG_FILE = $previousConfig
+}

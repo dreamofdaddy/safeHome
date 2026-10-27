@@ -32,7 +32,7 @@ class ListingRegistrationIntegrationTest {
     @Autowired jakarta.persistence.EntityManager entityManager;
 
     @Test
-    void savesValidatedPostcodeEvidenceAndClearsItOnAddressEdit() throws Exception {
+    void savesValidatedPostcodeEvidenceAndRejectsAddressOrEvidenceEdits() throws Exception {
         String token = signupAndLogin("postcode-" + UUID.randomUUID() + "@example.test");
         String filename = UUID.randomUUID() + ".pdf";
         String metadata = """
@@ -56,28 +56,31 @@ class ListingRegistrationIntegrationTest {
         mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(metadata.replace("\"11710\",\"noSelected\"", "\"11530\",\"noSelected\"")))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isConflict());
         mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(metadata.replace("\"address\":\"서울 송파구 잠실동 19\"",
                         "\"address\":\"서울 송파구 잠실동 20\"")))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isConflict());
+        for(String changed:new String[]{metadata.replace("160동 101호","160동 102호"),metadata.replace("APARTMENT","OFFICETEL"),metadata.replace("\"detailAddress\"","\"buildingName\":\"변경 건물명\",\"detailAddress\"")}) {
+            mvc.perform(put("/api/listings/"+id).header("Authorization","Bearer "+token).contentType(MediaType.APPLICATION_JSON).content(changed))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("LISTING-002"));
+        }
         String manualEdit = """
             {"address":"서울 송파구 잠실동 20","detailAddress":"160동 101호",
              "buildingType":"APARTMENT","transactionType":"JEONSE","depositAmount":200000000}
             """;
         mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON).content(manualEdit))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.addressSearchEvidence").value(org.hamcrest.Matchers.nullValue()));
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("LISTING-002"));
         entityManager.flush(); entityManager.clear();
-        assertThat(jdbc.queryForObject("SELECT address_search_bcode FROM listings WHERE id=?", String.class, id))
-                .isNull();
+        assertThat(jdbc.queryForObject("SELECT address_search_bcode FROM listings WHERE id=?",String.class,id)).isEqualTo("1171010100");
     }
 
     @Test
     void signupLoginThenStoreListingAndPrivatePdfWithoutCreatingProperty() throws Exception {
         String email = "listing-" + UUID.randomUUID() + "@example.test";
+        String filename = UUID.randomUUID() + ".pdf";
         String token = signupAndLogin(email);
         long beforeProperties = properties.count();
         byte[] pdf = onePagePdf();
@@ -85,7 +88,7 @@ class ListingRegistrationIntegrationTest {
             + "\"buildingType\":\"APARTMENT\",\"detailAddress\":\"101호\","
             + "\"transactionType\":\"JEONSE\",\"depositAmount\":200000000}";
         MockMultipartFile json = new MockMultipartFile("metadata", "", "application/json", metadata.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        MockMultipartFile file = new MockMultipartFile("registryPdf", "registry.pdf", "application/pdf", pdf);
+        MockMultipartFile file = new MockMultipartFile("registryPdf", filename, "application/pdf", pdf);
 
         mvc.perform(multipart("/api/registry-documents/listings")
                 .file(json).file(file).header("Authorization", "Bearer " + token))
@@ -98,8 +101,8 @@ class ListingRegistrationIntegrationTest {
             .andExpect(jsonPath("$.data.listing.propertyId").doesNotExist())
             .andExpect(jsonPath("$.data.document.status").value("UPLOADED"));
         assertThat(properties.count()).isEqualTo(beforeProperties);
-        var doc = documents.findAll().stream().filter(d -> d.getOriginalFilename().equals("registry.pdf"))
-            .reduce((first, second) -> second).orElseThrow();
+        var doc = documents.findAll().stream().filter(d -> d.getOriginalFilename().equals(filename))
+            .findFirst().orElseThrow();
         assertThat(doc.getPropertyId()).isNull();
         assertThat(doc.getListingId()).isNotNull();
         assertThat(doc.getEncryptedContent()).isNull();
@@ -140,7 +143,7 @@ class ListingRegistrationIntegrationTest {
     }
 
     @Test
-    void ownerCanReviseFailedListingAndDeleteItsDocumentButNotProcessingOrParsedListing() throws Exception {
+    void ownerCanReviseAtAnyCompletedStageAndDeleteWithoutErasingHistory() throws Exception {
         String token = signupAndLogin("edit-" + UUID.randomUUID() + "@example.test");
         String other = signupAndLogin("edit-other-" + UUID.randomUUID() + "@example.test");
         String filename = UUID.randomUUID() + ".pdf";
@@ -156,32 +159,37 @@ class ListingRegistrationIntegrationTest {
             .andExpect(jsonPath("$.data.listing.detailAddress").value("테스트아파트 101동 제202호"));
         var doc = documents.findAll().stream().filter(d -> filename.equals(d.getOriginalFilename())).findFirst().orElseThrow();
         Long id = doc.getListingId();
-        String corrected = metadata.replace("제202호", "제203호");
+        String corrected = metadata.replace("200000000", "300000000");
         mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + other)
             .contentType(MediaType.APPLICATION_JSON).content(corrected)).andExpect(status().isForbidden());
         mvc.perform(delete("/api/listings/" + id).header("Authorization", "Bearer " + other)).andExpect(status().isForbidden());
         mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON).content(corrected)).andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.detailAddress").value("테스트아파트 101동 제203호"));
-        for (String state : new String[] {"REGISTRY_PROCESSING", "REGISTRY_READY", "SAFETY_ANALYZED"}) {
+            .andExpect(jsonPath("$.data.detailAddress").value("테스트아파트 101동 제202호"));
+        for (String state : new String[] {"REGISTRY_PROCESSING"}) {
             entityManager.flush(); entityManager.clear();
             jdbc.update("UPDATE listings SET status=? WHERE id=?", state, id);
             mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON).content(metadata)).andExpect(status().isConflict());
             mvc.perform(delete("/api/listings/" + id).header("Authorization", "Bearer " + token)).andExpect(status().isConflict());
         }
+        for(String state:new String[]{"REGISTRY_READY","SAFETY_ANALYZED"}) {
+            jdbc.update("UPDATE listings SET status=? WHERE id=?",state,id);entityManager.clear();
+            mvc.perform(put("/api/listings/"+id).header("Authorization","Bearer "+token)
+                .contentType(MediaType.APPLICATION_JSON).content(corrected)).andExpect(status().isOk());
+        }
         jdbc.update("UPDATE listings SET status='REGISTRY_FAILED' WHERE id=?", id);
         entityManager.clear();
         mvc.perform(put("/api/listings/" + id).header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON).content(metadata)).andExpect(status().isOk());
         mvc.perform(delete("/api/listings/" + id).header("Authorization", "Bearer " + token)).andExpect(status().isNoContent());
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM listings WHERE id=?", Long.class, id)).isZero();
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM registry_documents WHERE listing_id=?", Long.class, id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM listings WHERE id=? AND deleted_at IS NULL", Long.class, id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM registry_documents WHERE listing_id=?", Long.class, id)).isEqualTo(1);
     }
 
     @Test
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void committedDeletionAlsoRemovesPrivatePdf() throws Exception {
+    void committedDeletionRetainsPrivateHistoryButBlocksFurtherOwnerDownloads() throws Exception {
         String token = signupAndLogin("delete-file-" + UUID.randomUUID() + "@example.test");
         String filename = UUID.randomUUID() + ".pdf";
         String metadata = """
@@ -196,9 +204,11 @@ class ListingRegistrationIntegrationTest {
         assertThat(storage.read(doc.getStorageKey())).isNotEmpty();
         mvc.perform(delete("/api/listings/" + doc.getListingId()).header("Authorization", "Bearer " + token))
             .andExpect(status().isNoContent());
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> storage.read(doc.getStorageKey()))
-            .isInstanceOf(IllegalStateException.class);
-        assertThat(documents.findById(doc.getId())).isEmpty();
+        assertThat(storage.read(doc.getStorageKey())).isNotEmpty();
+        assertThat(documents.findById(doc.getId())).isPresent();
+        mvc.perform(get("/api/registry-documents/"+doc.getId()+"/file").header("Authorization","Bearer "+token))
+            .andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("SELECT deleted_at IS NOT NULL FROM listings WHERE id=?",Boolean.class,doc.getListingId())).isTrue();
     }
 
     private String signupAndLogin(String email) throws Exception {

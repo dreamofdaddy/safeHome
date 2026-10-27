@@ -43,7 +43,7 @@ public class McpErrorConfiguration {
                 // Keep the declared content type so MCP's required `type` discriminator survives.
                 var contentType = context.getTypeFactory().constructCollectionType(List.class, Content.class);
                 context.findTypedValueSerializer(contentType, true).serialize(
-                        failed ? List.of(new TextContent("Tool execution failed")) : result.content(), gen, context);
+                        failed ? List.of(TextContent.builder("Tool execution failed").build()) : result.content(), gen, context);
                 if (result.isError() != null) context.defaultSerializeProperty("isError", result.isError(), gen);
                 if (!failed && result.structuredContent() != null)
                     context.defaultSerializeProperty("structuredContent", result.structuredContent(), gen);

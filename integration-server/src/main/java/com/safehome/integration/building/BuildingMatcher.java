@@ -48,6 +48,8 @@ public final class BuildingMatcher {
         List<BuildingUnit> matched = new ArrayList<>();
         boolean unknown = false;
         boolean onlyMissingFloor = true;
+        boolean inferredMatch = false;
+        boolean inferenceConflict = false;
         for (BuildingUnit unit : units) {
             // Missing cadastral fields cannot establish exclusion.
             String[][] pairs = {{query.sigunguCd(), unit.sigunguCd()}, {query.bjdongCd(), unit.bjdongCd()},
@@ -76,22 +78,40 @@ public final class BuildingMatcher {
             }
             if (unit.floorGroundType() != null && unit.floorGroundType() != query.floorGroundType()) continue;
             if (unit.floorNumber() != null && !unit.floorNumber().equals(query.floorNumber())) continue;
+            Integer comparedFloor = unit.floorNumber();
+            boolean inferred = false;
+            if (comparedFloor == null && label != null
+                    && unit.floorGroundType() == BuildingQuery.Ground.ABOVE_GROUND
+                    && label.ground() != BuildingQuery.Ground.BELOW_GROUND
+                    && label.unit().matches("[1-9][0-9]{2,4}") && !label.unit().endsWith("00")) {
+                comparedFloor = Integer.parseInt(label.unit().substring(0, label.unit().length() - 2));
+                inferred = true;
+                if ((label.floor() != null && !label.floor().equals(comparedFloor))
+                        || !comparedFloor.equals(query.floorNumber())) {
+                    unknown = true;
+                    onlyMissingFloor = false;
+                    inferenceConflict = true;
+                    continue;
+                }
+            }
             boolean otherFieldsMissing = missing || unit.floorGroundType() == null
                     || label == null
                     || unit.managementNumber() == null || unit.managementNumber().isBlank()
                     || unit.parentManagementNumber() == null || unit.parentManagementNumber().isBlank()
                     || unit.address() == null || unit.address().isBlank();
-            if (otherFieldsMissing || unit.floorNumber() == null) {
+            if (otherFieldsMissing || comparedFloor == null) {
                 unknown = true;
                 if (otherFieldsMissing) onlyMissingFloor = false;
             }
-            else matched.add(unit);
+            else { matched.add(unit); inferredMatch |= inferred; }
         }
         if (unknown) return new Resolution(Resolution.Status.UNVERIFIABLE, List.of(),
-                onlyMissingFloor ? "CANDIDATE_FLOOR_NUMBER_UNAVAILABLE" : "UNINTERPRETABLE_CANDIDATE",
+                inferenceConflict ? "FLOOR_INFERENCE_CONFLICT"
+                        : onlyMissingFloor ? "CANDIDATE_FLOOR_NUMBER_UNAVAILABLE" : "UNINTERPRETABLE_CANDIDATE",
                 "MOLIT_BUILDING_HUB", queriedAt, true);
         Resolution.Status status = matched.isEmpty() ? Resolution.Status.NOT_FOUND
                 : matched.size() == 1 ? Resolution.Status.MATCHED : Resolution.Status.AMBIGUOUS;
-        return new Resolution(status, matched, null, "MOLIT_BUILDING_HUB", queriedAt, true);
+        return new Resolution(status, matched, inferredMatch ? "FLOOR_INFERRED_FROM_UNIT_NUMBER" : null,
+                "MOLIT_BUILDING_HUB", queriedAt, true);
     }
 }

@@ -7,9 +7,9 @@ import { listingsApi } from './api'
 import type { Listing } from '../../types/api'
 
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 7 } }) }))
-vi.mock('./api', () => ({ listingsApi: { one: vi.fn(), update: vi.fn(), register: vi.fn() } }))
+vi.mock('./api', () => ({ listingsApi: { one: vi.fn(), update: vi.fn(), register: vi.fn(), create: vi.fn() } }))
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals() })
-const listing = { id: 9, registeredByUserId: 7, address: '서울 테스트로 1', detailAddress: '안전아파트 제202호', buildingName: '안전아파트', buildingType: 'APARTMENT', transactionType: 'JEONSE', depositAmount: 200000000, status: 'REGISTRY_FAILED' } as Listing
+const listing = { id: 9, registeredByUserId: 7, address: '서울 테스트로 1', detailAddress: '안전아파트 제202호', buildingName: '안전아파트', buildingType: 'APARTMENT', transactionType: 'JEONSE', depositAmount: 200000000, status: 'REGISTRY_FAILED', addressSearchEvidence: { selectedType: 'J', selectedAddress: '서울 테스트로 1', jibunAddress: '서울 테스트로 1', bcode: '1171010100', sigunguCode: '11710', noSelected: 'N' } } as Listing
 
 function open(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -21,6 +21,27 @@ function open(path: string) {
 }
 
 describe('listing registration and correction', () => {
+  it('defers registry attachments to the analysis screen without requiring a file', () => {
+    const { container } = open('/listings/new')
+    expect(screen.queryByLabelText('등기사항증명서 PDF 파일')).toBeNull()
+    expect(screen.getByRole('button', { name: '매물 등록' })).toBeEnabled()
+    expect(container.querySelector('input[type="file"]')).toBeNull()
+    expect(listingsApi.register).not.toHaveBeenCalled()
+  })
+  it('creates only listing metadata and navigates to its detail', async () => {
+    vi.mocked(listingsApi.create).mockResolvedValue(listing)
+    vi.stubGlobal('kakao', { Postcode: class {
+      constructor(private options: { oncomplete: (data: unknown) => void }) {}
+      open() { this.options.oncomplete({ userSelectedType: 'J', jibunAddress: '서울 테스트로 1', bcode: '1171010100', sigunguCode: '11710', noSelected: 'N' }) }
+    } })
+    open('/listings/new')
+    fireEvent.click(screen.getByRole('button', { name: '주소검색' }))
+    fireEvent.change(screen.getByLabelText('보증금', { exact: false }), { target: { value: '10000000' } })
+    fireEvent.click(screen.getByRole('button', { name: '매물 등록' }))
+    await waitFor(() => expect(listingsApi.create).toHaveBeenCalledWith(expect.objectContaining({ address: '서울 테스트로 1', depositAmount: 10000000 })))
+    expect(await screen.findByText('수정 완료')).toBeTruthy()
+    expect(listingsApi.register).not.toHaveBeenCalled()
+  })
   it('shows a separate detail address and building type before building name', () => {
     open('/listings/new')
     expect(screen.getByRole('textbox', { name: '상세주소' })).toBeTruthy()
@@ -34,45 +55,54 @@ describe('listing registration and correction', () => {
     vi.mocked(listingsApi.update).mockResolvedValue({ ...listing, detailAddress: '안전아파트 제203호' })
     open('/listings/9/edit')
     const detail = await screen.findByDisplayValue('안전아파트 제202호')
-    fireEvent.change(detail, { target: { value: '안전아파트 제203호' } })
+    expect(detail).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('보증금', { exact: false }), { target: { value: '300000000' } })
     fireEvent.click(screen.getByRole('button', { name: '수정 저장' }))
-    await waitFor(() => expect(listingsApi.update).toHaveBeenCalledWith(9, expect.objectContaining({ address: '서울 테스트로 1', detailAddress: '안전아파트 제203호' })))
+    await waitFor(() => expect(listingsApi.update).toHaveBeenCalledWith(9, expect.objectContaining({ address: '서울 테스트로 1', detailAddress: '안전아파트 제202호', depositAmount: 300000000 })))
     expect(await screen.findByText('수정 완료')).toBeTruthy()
   })
-  it('sends selected postcode evidence', async () => {
+  it('locks basic property fields and preserves original address evidence when saving terms', async () => {
     vi.mocked(listingsApi.one).mockResolvedValue(listing)
     vi.mocked(listingsApi.update).mockResolvedValue(listing)
-    vi.stubGlobal('kakao', { Postcode: class {
-      constructor(private options: { oncomplete: (data: unknown) => void }) {}
-      open() { this.options.oncomplete({ address: '서울 송파구 잠실동 19', userSelectedType: 'J',
-        roadAddress: '', jibunAddress: '서울 송파구 잠실동 19', bcode: '1171010100',
-        sigunguCode: '11710', noSelected: 'N' }) }
-    } })
     open('/listings/9/edit')
-    await screen.findByDisplayValue('서울 테스트로 1')
-    fireEvent.click(screen.getByRole('button', { name: '주소검색' }))
-    expect(screen.getByDisplayValue('서울 송파구 잠실동 19')).toBeTruthy()
+    expect(await screen.findByDisplayValue('서울 테스트로 1')).toBeDisabled()
+    expect(screen.getByRole('button', { name: '주소검색' })).toBeDisabled()
+    expect(screen.getByLabelText('건물 유형', { exact: false })).toBeDisabled()
+    expect(screen.getByLabelText('건물명')).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: '수정 저장' }))
-    await waitFor(() => expect(listingsApi.update).toHaveBeenCalledWith(9,
-      expect.objectContaining({ addressSearchEvidence: expect.objectContaining({ bcode: '1171010100' }) })))
+    await waitFor(() => expect(listingsApi.update).toHaveBeenCalledWith(9, expect.objectContaining({ addressSearchEvidence: listing.addressSearchEvidence, buildingName: listing.buildingName })))
   })
-  it('clears stored postcode evidence when the base address is edited', async () => {
-    vi.mocked(listingsApi.one).mockResolvedValue({ ...listing, addressSearchEvidence: {
-      selectedType: 'J', selectedAddress: '서울 테스트로 1', jibunAddress: '서울 테스트로 1',
-      bcode: '1171010100', sigunguCode: '11710', noSelected: 'N',
-    } })
+  it('can save trade terms on a legacy listing without address-search evidence', async () => {
+    vi.mocked(listingsApi.one).mockResolvedValue({ ...listing, addressSearchEvidence: null })
     vi.mocked(listingsApi.update).mockResolvedValue(listing)
     open('/listings/9/edit')
-    fireEvent.change(await screen.findByDisplayValue('서울 테스트로 1'),
-      { target: { value: '서울 테스트로 2' } })
+    await screen.findByDisplayValue('서울 테스트로 1')
     fireEvent.click(screen.getByRole('button', { name: '수정 저장' }))
-    await waitFor(() => expect(listingsApi.update).toHaveBeenCalledWith(9,
-      expect.objectContaining({ address: '서울 테스트로 2', addressSearchEvidence: null })))
+    await waitFor(() => expect(listingsApi.update).toHaveBeenCalledWith(9, expect.objectContaining({ addressSearchEvidence: null })))
+  })
+  it('requires address search before submission and makes the base address read-only', async () => {
+    const { container } = open('/listings/new')
+    expect((screen.getByRole('textbox', { name: '매물주소' }) as HTMLInputElement).readOnly).toBe(true)
+    expect((screen.getByRole('textbox', { name: '상세주소' }) as HTMLInputElement).readOnly).toBe(false)
+    fireEvent.submit(container.querySelector('form')!)
+    expect(await screen.findByText(/주소검색에서 매물주소를 선택해 주세요/)).toBeTruthy()
+    expect(listingsApi.register).not.toHaveBeenCalled()
+  })
+  it('rejects a search selection without confirmed cadastral information', async () => {
+    vi.stubGlobal('kakao', { Postcode: class {
+      constructor(private options: { oncomplete: (data: unknown) => void }) {}
+      open() { this.options.oncomplete({ userSelectedType: 'R', roadAddress: '합성 테스트 도로', jibunAddress: '', bcode: '1171010100', sigunguCode: '11710', noSelected: 'Y' }) }
+    } })
+    open('/listings/new')
+    fireEvent.click(screen.getByRole('button', { name: '주소검색' }))
+    expect(await screen.findByText('선택한 주소를 확인할 수 없습니다. 다른 검색 결과를 선택해 주세요.')).toBeTruthy()
+    expect((screen.getByRole('textbox', { name: '매물주소' }) as HTMLInputElement).value).toBe('')
+    expect(listingsApi.register).not.toHaveBeenCalled()
   })
   it('does not render an edit form for someone else’s listing', async () => {
     vi.mocked(listingsApi.one).mockResolvedValue({ ...listing, registeredByUserId: 8 })
     open('/listings/9/edit')
-    expect(await screen.findByText('본인이 등록한 판독 대기·실패 매물만 수정할 수 있습니다.')).toBeTruthy()
+    expect(await screen.findByText('본인이 등록한 매물만 수정할 수 있으며, 분석 중에는 완료 후 수정해 주세요.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '수정 저장' })).toBeNull()
   })
 })

@@ -29,6 +29,7 @@ export interface RegistryDocument {
 export interface RegistryProcessing {
   listingId: number; documentId: number; status: RegistryDocument['status']; errorCode?: string;
   propertyId: number | null; registrySnapshotId: number | null; processedAt?: string;
+  addressMismatch?: { registeredAddress: string; lotAddress?: string | null; roadAddress?: string | null } | null;
 }
 
 export interface RiskFactor {
@@ -43,7 +44,7 @@ export interface SafetyAnalysis {
 export interface SafetyResult {
   listingId: number; listingStatus: ListingStatus; analysis: SafetyAnalysis; summary: string;
   highestSeverity: RiskLevel | null; factorCount: number; latestRegistrySnapshotId: number;
-  reanalysisAvailable: boolean; reanalysisReason: 'NO_PREVIOUS_ANALYSIS' | 'POLICY_VERSION_CHANGED' | 'REGISTRY_CHANGED' | 'UP_TO_DATE';
+  reanalysisAvailable: boolean; reanalysisReason: 'NO_PREVIOUS_ANALYSIS' | 'POLICY_VERSION_CHANGED' | 'ANALYSIS_VERSION_CHANGED' | 'LISTING_CHANGED' | 'REGISTRY_CHANGED' | 'UP_TO_DATE';
 }
 
 export interface ListingMetadata {
@@ -62,10 +63,40 @@ export interface ListingRegistration { listing: Listing; document: RegistryDocum
 export type BuildingExecutionStatus = 'NOT_REQUESTED' | 'PENDING' | 'RUNNING' | 'COMPLETED' |
   'INPUT_INCOMPLETE' | 'INPUT_CONFLICT' | 'CALL_FAILED' | 'DISABLED' | 'SUPERSEDED'
 export type BuildingResolutionStatus = 'MATCHED' | 'NOT_FOUND' | 'AMBIGUOUS' | 'UNVERIFIABLE'
+export interface BuildingLookupInput { addressSearchEvidence?: AddressSearchEvidence; detailAddress?: string }
+
 export interface BuildingIdentification {
   id: number | null; registrySnapshotId: number | null;
   executionStatus: BuildingExecutionStatus; resolutionStatus: BuildingResolutionStatus | null;
   reason: string | null; candidateCount: number | null;
   managementNumber: string | null; parentManagementNumber: string | null;
   unitName: string | null; source: string | null; queriedAt: string | null;
+}
+
+export interface BuildingRegisterEntry {
+  fileIndex: number; page: number; documentType: 'GENERAL' | 'TITLE' | 'EXCLUSIVE' | 'SUMMARY' | 'UNKNOWN';
+  issuedAt?: string | null; jibunAddress?: string | null; roadAddress?: string | null; buildingName?: string | null;
+  dongName?: string | null; floorLabel?: string | null; unitName?: string | null; purpose?: string | null;
+  areaSquareMeters?: number | null; violationStatus: 'MARKED' | 'NO_MARK_VISIBLE' | 'UNKNOWN';
+  evidence: { page: number; kind: string; text: string }[];
+}
+export interface BuildingRegisterReview {
+  id: number; status: 'UPLOADED' | 'PROCESSING' | 'PARSED' | 'FAILED' | 'SUPERSEDED';
+  requiredDocumentType?: 'EXCLUSIVE' | 'GENERAL' | 'EXCLUSIVE_OR_GENERAL';
+  files: { index: number; name: string; sizeBytes: number; pages: number }[];
+  result?: { entries: BuildingRegisterEntry[]; checks: { entryIndex: number; listingAddress: string; registryAddress: string; unit: string; apiUnit: string; purpose: string; dong?: string }[];
+    violationMentioned: boolean; conclusion: string; registrySnapshotId?: number; apiIdentificationId?: number };
+  errorCode?: string; attemptCount: number; provider?: string; model?: string; stale: boolean; createdAt: string; processedAt?: string;
+}
+export interface BuildingRegisterEnvelope {
+  latest?: BuildingRegisterReview | null;
+  history: { id: number; status: BuildingRegisterReview['status']; stale: boolean; createdAt: string }[];
+}
+
+export interface RegistryFacts {
+  documentId: number; registrySnapshotId: number;
+  owners: { entityType?: 'PERSON' | 'CORPORATION' | 'UNKNOWN'; name: string; ownershipShare: string | null; ownershipType?: 'OWNER' | 'CO_OWNER' | 'UNKNOWN';
+    priorityNumber?: string | null; ownerAddress?: string | null; acquisitionAmount?: number | null }[];
+  rights: { type: string; sourceName?: string | null; amount: number | null; priority: number | null; registeredAt: string | null; status: string }[];
+  ownershipNeedsReview: boolean;
 }

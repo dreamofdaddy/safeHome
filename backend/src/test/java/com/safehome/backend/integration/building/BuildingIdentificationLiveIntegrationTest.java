@@ -79,6 +79,15 @@ class BuildingIdentificationLiveIntegrationTest {
 
         mvc.perform(post("/api/listings/{id}/registry-processing", listingId)
                 .header("Authorization", "Bearer " + token)).andExpect(status().isAccepted());
+        for (int i=0; i<100; i++) {
+            String doc=jdbc.queryForObject("SELECT status FROM registry_documents WHERE listing_id=?",String.class,listingId);
+            if("PARSED".equals(doc))break;
+            Thread.sleep(100);
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM building_identifications WHERE listing_id=?",Integer.class,listingId)).isZero();
+        mvc.perform(post("/api/listings/{id}/building-identification/lookup", listingId)
+                .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"detailAddress\":\"160동 지상 1층 101호\"}")).andExpect(status().isAccepted());
         String execution = null;
         for (int i = 0; i < 150; i++) {
             List<String> states = jdbc.query("""

@@ -16,6 +16,7 @@ export function ListingSafetyBadge({ listingId }: { listingId: number }) {
   if (result.isPending) return <span className="text-[11px] text-slate-500">분석 결과 확인 중…</span>
   if (result.error || !result.data) return <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600">분석 결과 조회 실패</span>
   const { analysis, reanalysisAvailable, reanalysisReason } = result.data
+  if (analysis.factors?.some(factor => factor.factorType === 'CO_OWNER_ISSUE')) return <span className="rounded-md bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800">평価 기준 변경 · 재분석 필요</span>
   return <>
     <span className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[11px] font-bold ${riskTone[analysis.riskLevel]}`} title="저장된 분석 결과입니다. 위험점수는 높을수록 위험도가 높습니다.">
       <Shield size={13} aria-hidden="true" />위험도 {riskLabel[analysis.riskLevel]} · {analysis.riskScore}점

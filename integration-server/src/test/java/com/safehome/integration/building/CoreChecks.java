@@ -53,14 +53,14 @@ public final class CoreChecks {
         var floorMissing = new BuildingUnit("no-floor", "parent", "11530", "10700", "0", "0355", "0018",
                 "address", null, null, BuildingQuery.Ground.ABOVE_GROUND, null, "101호", "villa");
         check(matcher.match(VILLA, List.of(floorMissing), true, Instant.now()).status()
-                == Resolution.Status.UNVERIFIABLE, "unit 101 cannot supply missing API floor");
+                == Resolution.Status.MATCHED, "numeric room supplies a disclosed estimated floor");
         var floorUnavailable = matcher.match(VILLA, List.of(floorMissing), true, Instant.now());
-        check("CANDIDATE_FLOOR_NUMBER_UNAVAILABLE".equals(floorUnavailable.reason()),
+        check("FLOOR_INFERRED_FROM_UNIT_NUMBER".equals(floorUnavailable.reason()),
                 "missing upstream floor has a safe specific diagnostic");
-        check(floorUnavailable.collectionComplete() && floorUnavailable.candidates().isEmpty(),
+        check(floorUnavailable.collectionComplete() && floorUnavailable.candidates().size() == 1 && floorUnavailable.candidates().getFirst().floorNumber() == null,
                 "missing floor is completed collection without a confirmed match");
-        check(matcher.match(VILLA, List.of(villa, floorMissing), true, Instant.now()).status()
-                == Resolution.Status.UNVERIFIABLE, "a valid unit cannot override a competitor with missing floor");
+        check(matcher.match(VILLA, List.of(java.util.Objects.requireNonNull(villa), floorMissing), true, Instant.now()).status()
+                == Resolution.Status.AMBIGUOUS, "inferred competitor remains ambiguous");
         var floorAndGroundMissing = unitAt("incomplete", null, null, "101호");
         check("UNINTERPRETABLE_CANDIDATE".equals(matcher.match(VILLA,
                 List.of(floorAndGroundMissing), true, Instant.now()).reason()),
@@ -118,7 +118,7 @@ public final class CoreChecks {
         check(matcher.match(VILLA, List.of(underground), true, Instant.now()).status() == Resolution.Status.NOT_FOUND, "basement distinct");
         var unknown = new BuildingUnit("u", "p", "11530", "10700", "0", "0355", "0018",
                 "address", null, null, null, 1, "101", "villa");
-        check(matcher.match(VILLA, List.of(villa, unknown), true, Instant.now()).status()
+        check(matcher.match(VILLA, List.of(java.util.Objects.requireNonNull(villa), unknown), true, Instant.now()).status()
                 == Resolution.Status.UNVERIFIABLE, "unknown competing candidate");
         check(BuildingMatcher.normalize("Ａ-１０１호", "호").equals("A-101"), "unicode normalization");
         check(!BuildingMatcher.normalize("A-101", "호").equals(BuildingMatcher.normalize("101", "호")), "retain prefix");
@@ -140,7 +140,7 @@ public final class CoreChecks {
             return new AllPages.Page(page, 5678, apartment.subList(start, Math.min(start + 100, 5678)));
         }, 200, 20000);
         check(all.size() == 5678 && pages.get() == 57, "all 57 pages required");
-        check(all.stream().map(BuildingUnit::dongName).distinct().count() == 72, "72 buildings");
+        check(all.stream().map(unit -> java.util.Objects.requireNonNull(unit).dongName()).distinct().count() == 72, "72 buildings");
         var apartmentQuery = new BuildingQuery("11710", "10100", "0", "0019", "0000",
                 "제160동", BuildingQuery.Ground.ABOVE_GROUND, 1, "101호");
         result = matcher.match(apartmentQuery, all, true, Instant.now());
@@ -279,7 +279,7 @@ public final class CoreChecks {
                 });
                 expectCode(operation.name() + "_PAGE_1_MALFORMED_RESPONSE_XML",
                         () -> client.fetchAll(operation, QUERY, deadline()));
-                check(calls.get() == 1, "malformed data is not retried");
+                check(calls.get() == 4, "malformed data has at most three retries");
             }
             AtomicInteger calls = new AtomicInteger();
             BuildingHubClient unavailable = new BuildingHubClient("fake-key", uri -> {
@@ -288,7 +288,7 @@ public final class CoreChecks {
             });
             expectCode("EXPOS_PAGE_1_UPSTREAM_HTTP_503",
                     () -> unavailable.fetchAll(BuildingHubClient.Operation.EXPOS, QUERY, deadline()));
-            check(calls.get() == 2, "HTTP 503 retry limit preserved");
+            check(calls.get() == 4, "HTTP 503 has at most three retries");
             calls.set(0);
             BuildingHubClient denied = new BuildingHubClient("fake-key", uri -> {
                 calls.incrementAndGet();

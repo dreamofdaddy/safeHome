@@ -20,6 +20,15 @@ public class RiskAnalysis {
 
     @Column(name = "analysis_version", nullable = false, length = 50)
     private String analysisVersion;
+    @Column(name="building_register_input_fingerprint",length=120)
+    private String buildingRegisterInputFingerprint;
+    public String getBuildingRegisterInputFingerprint(){return buildingRegisterInputFingerprint;}
+    public void setBuildingRegisterInputFingerprint(String value){buildingRegisterInputFingerprint=value;}
+
+    @Column(name="listing_input_fingerprint",length=64)
+    private String listingInputFingerprint;
+    public String getListingInputFingerprint(){return listingInputFingerprint;}
+    public void setListingInputFingerprint(String value){listingInputFingerprint=value;}
 
     @Column(name = "policy_version", length = 50)
     private String policyVersion;

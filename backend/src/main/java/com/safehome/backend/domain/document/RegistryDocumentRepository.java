@@ -8,5 +8,7 @@ public interface RegistryDocumentRepository extends JpaRepository<RegistryDocume
     List<RegistryDocument> findByUploadedByUserIdOrderByCreatedAtDesc(Long userId);
     Optional<RegistryDocument> findTopByListingIdOrderByIdDesc(Long listingId);
     List<RegistryDocument> findByListingId(Long listingId);
+    Optional<RegistryDocument> findFirstByListingIdAndStatusOrderByIdDesc(Long listingId,String status);
+    Optional<RegistryDocument> findByListingIdAndAnalysisRequestId(Long listingId,java.util.UUID requestId);
     List<RegistryDocument> findByStatus(String status);
 }

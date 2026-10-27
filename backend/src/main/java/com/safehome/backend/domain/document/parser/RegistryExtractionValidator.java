@@ -12,7 +12,7 @@ import java.util.Set;
 @Component
 public class RegistryExtractionValidator {
     private static final Set<String> RIGHT_TYPES = Set.of(
-        "MORTGAGE", "LEASEHOLD", "SEIZURE", "PROVISIONAL_SEIZURE", "OTHER");
+        "MORTGAGE", "LEASEHOLD", "SEIZURE", "PROVISIONAL_SEIZURE", "TRUST", "AUCTION", "OTHER");
 
     public VerifiedRegistryDocument validate(ParsedRegistryDocument parsed, Listing listing) {
         if (parsed == null || parsed.registryPropertyNumber() == null
@@ -30,29 +30,41 @@ public class RegistryExtractionValidator {
             throw new RegistryParseException("REGISTRY_DATE_INVALID");
 
         List<VerifiedRegistryDocument.Owner> owners = parsed.owners().stream().map(owner -> {
-            if (blank(owner.name()) || owner.name().length() > 200
-                    || owner.maskedIdentifier() == null
-                    || !owner.maskedIdentifier().matches("[0-9]{6}-\\*{7}"))
+            String entity = owner.entityType() == null ? "PERSON" : owner.entityType();
+            boolean corporation = "CORPORATION".equals(entity);
+            if (!Set.of("PERSON","CORPORATION","UNKNOWN").contains(entity)
+                    || blank(owner.name()) || owner.name().length() > 200
+                    || (corporation ? owner.maskedIdentifier() != null && !owner.maskedIdentifier().matches("[0-9]{6}-[0-9*]{7}")
+                        : owner.maskedIdentifier() == null || !owner.maskedIdentifier().matches("[0-9]{6}-\\*{7}")))
                 throw new RegistryParseException("REGISTRY_OWNER_UNCERTAIN");
             if (owner.ownershipRatio() != null && (owner.ownershipRatio().compareTo(BigDecimal.ZERO) <= 0
                     || owner.ownershipRatio().compareTo(BigDecimal.valueOf(100)) > 0))
                 throw new RegistryParseException("REGISTRY_OWNER_RATIO_INVALID");
+            if (owner.ownershipShare()!=null && owner.ownershipShare().length()>100)
+                throw new RegistryParseException("REGISTRY_OWNER_RATIO_INVALID");
+            if(owner.ownershipType()!=null && !Set.of("OWNER","CO_OWNER","UNKNOWN").contains(owner.ownershipType())
+                || owner.priorityNumber()!=null && owner.priorityNumber().length()>40
+                || owner.ownerAddress()!=null && owner.ownerAddress().length()>1000
+                || owner.acquisitionAmount()!=null && (owner.acquisitionAmount().signum()<0 || owner.acquisitionAmount().precision()-owner.acquisitionAmount().scale()>18))
+                throw new RegistryParseException("REGISTRY_OWNER_UNCERTAIN");
+            BigDecimal computed=OwnershipShare.percentage(owner.ownershipShare());
             return new VerifiedRegistryDocument.Owner(owner.name().trim(), owner.maskedIdentifier(),
-                owner.ownershipRatio(), parseDate(owner.registeredAt(), false));
+                computed==null?owner.ownershipRatio():computed, parseDate(owner.registeredAt(), false),owner.ownershipShare(),
+                owner.ownershipType()==null?"UNKNOWN":owner.ownershipType(),owner.priorityNumber(),owner.ownerAddress(),owner.acquisitionAmount(),corporation ? "CORPORATION" : "PERSON");
         }).toList();
 
         if (parsed.rights() == null) throw new RegistryParseException("REGISTRY_RIGHTS_UNCERTAIN");
         List<VerifiedRegistryDocument.Right> rights = parsed.rights().stream().map(right -> {
-            if (right.type() == null || !RIGHT_TYPES.contains(right.type())
-                    || !Set.of("ACTIVE", "INACTIVE").contains(right.status())
-                    || ("OTHER".equals(right.type()) && "ACTIVE".equals(right.status())))
+            if (right == null || right.type() == null || !RIGHT_TYPES.contains(right.type())
+                    || right.status() == null || !Set.of("ACTIVE", "INACTIVE").contains(right.status())
+                    || right.sourceName() != null && (right.sourceName().length() > 200 || right.sourceName().chars().anyMatch(Character::isISOControl)))
                 throw new RegistryParseException("REGISTRY_RIGHT_UNSUPPORTED");
             if (right.amount() != null && right.amount().compareTo(BigDecimal.ZERO) < 0)
                 throw new RegistryParseException("REGISTRY_RIGHT_AMOUNT_INVALID");
             if (right.priority() != null && right.priority() <= 0)
                 throw new RegistryParseException("REGISTRY_RIGHT_PRIORITY_INVALID");
             return new VerifiedRegistryDocument.Right(right.type(), right.holderName(),
-                right.amount(), right.priority(), parseDate(right.registeredAt(), false), right.status());
+                right.amount(), right.priority(), parseDate(right.registeredAt(), false), right.status(), right.sourceName());
         }).toList();
         String primaryAddress = blank(parsed.address()) ? parsed.roadAddress().trim() : parsed.address().trim();
         return new VerifiedRegistryDocument(parsed.registryPropertyNumber(), primaryAddress,

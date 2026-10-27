@@ -51,7 +51,7 @@ class SafetyAnalysisControllerIntegrationTest {
                         .andExpect(jsonPath("$.data.id").isNumber())
                         .andExpect(jsonPath("$.data.propertyId").value(propertyId))
                         .andExpect(jsonPath("$.data.registrySnapshotId").isNumber())
-                        .andExpect(jsonPath("$.data.analysisVersion").value("1.0"))
+                        .andExpect(jsonPath("$.data.analysisVersion").value("1.3"))
                         .andExpect(jsonPath("$.data.policyVersion").isString())
                         .andExpect(jsonPath("$.data.riskLevel").isString())
                         .andExpect(jsonPath("$.data.riskScore").isNumber())

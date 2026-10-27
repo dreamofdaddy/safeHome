@@ -34,6 +34,12 @@ public class OwnerIdentityService {
                 byte[].class, maskedIdentifier, encryptionKey);
     }
 
+    public byte[] encryptCorporateIdentifier(String identifier) {
+        if (identifier == null || !identifier.matches("[0-9]{6}-[0-9*]{7}")) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        requireKeys();
+        return jdbcTemplate.queryForObject("SELECT pgp_sym_encrypt(?, ?, 'cipher-algo=aes256')",byte[].class,identifier,encryptionKey);
+    }
+
     public String hashBirth6(String maskedIdentifier) {
         validate(maskedIdentifier);
         requireKeys();

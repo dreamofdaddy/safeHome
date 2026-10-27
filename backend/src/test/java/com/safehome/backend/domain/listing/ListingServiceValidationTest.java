@@ -1,6 +1,7 @@
 package com.safehome.backend.domain.listing;
 
 import com.safehome.backend.common.code.CodeService;
+import com.safehome.backend.domain.buildingregister.BuildingRegisterStore;
 import com.safehome.backend.common.exception.BusinessException;
 import com.safehome.backend.domain.document.dto.ListingRegistrationRequest;
 import com.safehome.backend.domain.property.PropertyRepository;
@@ -23,6 +24,7 @@ class ListingServiceValidationTest {
     @Mock private PropertyRepository propertyRepository;
     @Mock private UserRepository userRepository;
     @Mock private CodeService codeService;
+    @Mock private BuildingRegisterStore buildingRegisterStore;
 
     private ListingService listingService;
 
@@ -30,7 +32,7 @@ class ListingServiceValidationTest {
     void setUp() {
         openMocks(this);
         listingService = new ListingService(
-                listingRepository, propertyRepository, userRepository, codeService, null, null);
+                listingRepository, propertyRepository, userRepository, codeService, null, buildingRegisterStore);
         when(codeService.getRequiredActiveCode(anyString(), anyString()))
                 .thenAnswer(invocation -> invocation.getArgument(1));
     }

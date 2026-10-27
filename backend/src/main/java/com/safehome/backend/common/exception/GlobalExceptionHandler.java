@@ -80,8 +80,8 @@ public class GlobalExceptionHandler {
         return createErrorResponse(ErrorCode.PAYLOAD_TOO_LARGE);
     }
 
-    @ExceptionHandler(MissingServletRequestPartException.class)
-    public ResponseEntity<ApiResponse<ErrorResponse>> handleMissingPart(MissingServletRequestPartException exception) {
+    @ExceptionHandler({MissingServletRequestPartException.class, org.springframework.web.bind.MissingServletRequestParameterException.class, org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiResponse<ErrorResponse>> handleMissingPart(Exception exception) {
         return createErrorResponse(ErrorCode.INVALID_REQUEST);
     }
 

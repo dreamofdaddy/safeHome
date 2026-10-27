@@ -28,6 +28,15 @@ public class BuildingQueryFactory {
         if (listing == null || registry == null) return result(Status.INPUT_INCOMPLETE, "MISSING_SOURCE", null, null);
         Parts fromListing = parse(listing.getDetailAddress(), false);
         Parts fromRegistry = combine(parse(registry.address(), false), parse(registry.unitNumber(), true));
+        return buildParts(listing, fromListing, fromRegistry);
+    }
+
+    public Result buildListing(Listing listing) {
+        if (listing == null) return result(Status.INPUT_INCOMPLETE, "MISSING_SOURCE", null, null);
+        return buildParts(listing, parse(listing.getDetailAddress(), false), parse(null, false));
+    }
+
+    private Result buildParts(Listing listing, Parts fromListing, Parts fromRegistry) {
         if (fromListing.repeatedLabel() || fromRegistry == null || fromRegistry.repeatedLabel())
             return result(Status.INPUT_CONFLICT, "REPEATED_OR_CONFLICTING_LABEL", fromListing, fromRegistry);
         AddressSearchEvidence evidence = listing.getAddressSearchEvidence();

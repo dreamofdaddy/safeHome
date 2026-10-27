@@ -33,7 +33,7 @@ public class RiskScoreCalculator {
 
         return new RiskScoreCalculationResult(
                 factors,
-                totalScore
+                totalScore.min(BigDecimal.valueOf(100))
         );
     }
 

@@ -1,0 +1,145 @@
+{
+  "type": "object",
+  "properties": {
+    "buildingRegisterDocument": {
+      "type": "boolean"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fileIndex": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "documentType": {
+            "type": "string",
+            "enum": [
+              "GENERAL",
+              "TITLE",
+              "EXCLUSIVE",
+              "SUMMARY",
+              "UNKNOWN"
+            ]
+          },
+          "issuedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "jibunAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "roadAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "buildingName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dongName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "floorLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unitName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "areaSquareMeters": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "violationStatus": {
+            "type": "string",
+            "enum": [
+              "MARKED",
+              "NO_MARK_VISIBLE",
+              "UNKNOWN"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "page": {
+                  "type": "integer"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "VIOLATION",
+                    "USE_CHANGE",
+                    "AREA_CHANGE",
+                    "OTHER"
+                  ]
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "page",
+                "kind",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "fileIndex",
+          "page",
+          "documentType",
+          "issuedAt",
+          "jibunAddress",
+          "roadAddress",
+          "buildingName",
+          "dongName",
+          "floorLabel",
+          "unitName",
+          "purpose",
+          "areaSquareMeters",
+          "violationStatus",
+          "evidence"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "buildingRegisterDocument",
+    "entries"
+  ],
+  "additionalProperties": false
+}

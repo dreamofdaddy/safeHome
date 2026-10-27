@@ -73,3 +73,6 @@ docker-compose.override.yml
 data/
 uploads/
 /property.json
+
+# IDE-generated Java output
+/integration-server/bin/

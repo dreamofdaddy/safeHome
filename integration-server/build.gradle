@@ -21,3 +21,8 @@ tasks.register('coreTest', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.safehome.integration.building.CoreChecks'
 }
+
+// Show the exact API location when new deprecated calls are introduced.
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs.add("-Xlint:deprecation")
+}

@@ -10,9 +10,6 @@ import com.safehome.backend.common.exception.UserNotFoundException;
 import com.safehome.backend.domain.listing.dto.ListingResponse;
 import com.safehome.backend.domain.document.dto.ListingRegistrationRequest;
 import com.safehome.backend.domain.document.RegistryDocumentRepository;
-import com.safehome.backend.domain.document.PrivatePdfStorage;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.safehome.backend.domain.property.PropertyRepository;
 import com.safehome.backend.domain.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -26,9 +23,9 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class ListingService {
 
+    private final com.safehome.backend.domain.buildingregister.BuildingRegisterStore buildingRegisterDocuments;
     private final CodeService codeService;
     private final RegistryDocumentRepository documents;
-    private final PrivatePdfStorage storage;
     private final ListingRepository listingRepository;
     private final PropertyRepository propertyRepository;
     private final UserRepository userRepository;
@@ -37,12 +34,14 @@ public class ListingService {
         ListingRepository listingRepository,
         PropertyRepository propertyRepository,
         UserRepository userRepository,
-        CodeService codeService, RegistryDocumentRepository documents, PrivatePdfStorage storage
+        CodeService codeService, RegistryDocumentRepository documents,
+        com.safehome.backend.domain.buildingregister.BuildingRegisterStore buildingRegisterDocuments
     ) {
         this.listingRepository = listingRepository;
         this.propertyRepository = propertyRepository;
         this.userRepository = userRepository;
-        this.codeService = codeService; this.documents = documents; this.storage = storage;
+        this.codeService = codeService; this.documents = documents;
+        this.buildingRegisterDocuments = buildingRegisterDocuments;
     }
 
     public List<ListingResponse> findAll() {
@@ -119,43 +118,40 @@ public class ListingService {
         validateTransactionTerms(request.transactionType(), request.depositAmount(), request.monthlyRent(),
             request.salePrice(), request.listedAt(), request.expiredAt());
         codeService.getRequiredActiveCode("PROPERTY_TYPE", request.buildingType());
-        var evidence = request.addressSearchEvidence() == null ? null
-            : request.addressSearchEvidence().validatedFor(request.address());
-        if (!java.util.Objects.equals(listing.getAddressSearchEvidence(), evidence))
-            listing.setCurrentBuildingIdentificationId(null);
-        listing.revise(request);
-        listing.setAddressSearchEvidence(evidence);
+        if (!java.util.Objects.equals(clean(listing.getAddress()), clean(request.address()))
+            || !java.util.Objects.equals(clean(listing.getDetailAddress()), clean(request.detailAddress()))
+            || !java.util.Objects.equals(clean(listing.getBuildingName()), clean(request.buildingName()))
+            || !java.util.Objects.equals(listing.getBuildingType(), request.buildingType())
+            || !java.util.Objects.equals(listing.getAddressSearchEvidence(),request.addressSearchEvidence()))
+            throw new BusinessException(ErrorCode.LISTING_IDENTITY_LOCKED);
+        listing.reviseTerms(request);
         return ListingResponse.from(listing);
     }
 
     @Transactional
     public void delete(Long id, Long userId) {
         Listing listing = editable(id, userId);
-        var attached = documents.findByListingId(id);
-        documents.deleteAll(attached);
-        documents.flush();
+        // Owner deletion hides this listing only. Retain private files/snapshots/shared property history.
         listingRepository.delete(listing);
         listingRepository.flush();
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCommit() {
-                for (var document : attached) {
-                    if (document.getStorageKey() != null) storage.delete(document.getStorageKey());
-                }
-            }
-        });
+    }
+
+    public boolean isActiveOwned(Long id,Long userId) {
+        return listingRepository.findById(id).map(l->l.getRegisteredByUserId().equals(userId)).orElse(false);
     }
 
     private Listing editable(Long id, Long userId) {
         Listing listing = listingRepository.findByIdForUpdate(id)
             .orElseThrow(() -> new ListingNotFoundException(id));
         if (!listing.getRegisteredByUserId().equals(userId)) throw new BusinessException(ErrorCode.FORBIDDEN);
-        if (listing.getPropertyId() != null || listing.getRiskAnalysisId() != null
-                || !("READY_FOR_ANALYSIS".equals(listing.getStatus()) || "REGISTRY_FAILED".equals(listing.getStatus()))
-                || documents.findByListingId(id).stream().anyMatch(d ->
-                    !"UPLOADED".equals(d.getStatus()) && !"FAILED".equals(d.getStatus())))
+        if ("REGISTRY_PROCESSING".equals(listing.getStatus())
+                || documents.findByListingId(id).stream().anyMatch(d->"PROCESSING".equals(d.getStatus()))
+                || buildingRegisterDocuments.hasRunningWork(id))
             throw new BusinessException(ErrorCode.LISTING_NOT_EDITABLE);
         return listing;
     }
+
+    private String clean(String value) { return value==null || value.isBlank()?null:value.trim(); }
 
     private void validateTransactionType(String transactionType) {
         if (transactionType == null || transactionType.isBlank()) {

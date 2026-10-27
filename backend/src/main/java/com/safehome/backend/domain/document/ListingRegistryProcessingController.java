@@ -16,11 +16,14 @@ public class ListingRegistryProcessingController {
         this.auth = auth; this.state = state;
     }
 
+    public record StartRequest(boolean reparseConsent) {}
+
     @PostMapping
     public ResponseEntity<ApiResponse<ListingRegistryProcessingResponse>> start(
-            @RequestHeader("Authorization") String authorization, @PathVariable Long listingId) {
+            @RequestHeader("Authorization") String authorization, @PathVariable Long listingId,
+            @RequestBody(required=false) StartRequest request) {
         Long userId = auth.requireUser(authorization).getId();
-        return ResponseEntity.accepted().body(ApiResponse.success(state.start(userId, listingId)));
+        return ResponseEntity.accepted().body(ApiResponse.success(state.start(userId, listingId, request!=null && request.reparseConsent())));
     }
 
     @GetMapping

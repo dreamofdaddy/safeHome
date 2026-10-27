@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "listings")
+@org.hibernate.annotations.SQLDelete(sql="UPDATE listings SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?")
+@org.hibernate.annotations.SQLRestriction("deleted_at IS NULL")
 public class Listing {
 
     @Id
@@ -156,6 +158,11 @@ public class Listing {
     public String getFullAddress() {
         return address + (detailAddress == null || detailAddress.isBlank() ? "" : " " + detailAddress.trim());
     }
+    public void reviseTerms(com.safehome.backend.domain.document.dto.ListingRegistrationRequest request) {
+        transactionType=request.transactionType();depositAmount=request.depositAmount();monthlyRent=request.monthlyRent();salePrice=request.salePrice();
+        if(request.listedAt()!=null)listedAt=request.listedAt();
+        if(request.expiredAt()!=null)expiredAt=request.expiredAt();updatedAt=LocalDateTime.now();
+    }
     public void revise(com.safehome.backend.domain.document.dto.ListingRegistrationRequest request) {
         if (!address.equals(request.address().trim())
                 || !java.util.Objects.equals(detailAddress,
@@ -224,6 +231,8 @@ public class Listing {
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }
+
+    public void requireRegistryReview() { status="READY_FOR_ANALYSIS"; currentBuildingIdentificationId=null; updatedAt=LocalDateTime.now(); }
 
     public void markRegistryProcessing() {
         status = "REGISTRY_PROCESSING"; updatedAt = LocalDateTime.now();

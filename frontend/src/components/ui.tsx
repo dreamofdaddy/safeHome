@@ -19,5 +19,5 @@ export function PageHeading({ eyebrow, title, description, action, back }: { eye
 
 export function ErrorNotice({ error }: { error: unknown }) {
   if (!error) return null
-  return <div role="alert" className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error instanceof Error ? error.message : '요청을 완료하지 못했습니다.'}</div>
+  return <div role="alert" className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error instanceof Error ? error.message.replaceAll('판독', '분석').replace(/등기부(?:\s*등본)?/g, '등기사항증명서') : '요청을 완료하지 못했습니다.'}</div>
 }

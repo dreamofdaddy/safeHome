@@ -39,6 +39,7 @@ function Stop-ManagedProcess {
 
 Stop-ManagedProcess -Name 'frontend' -Port 5173
 Stop-ManagedProcess -Name 'backend' -Port 8080
+Stop-ManagedProcess -Name 'integration' -Port 8090
 
 if (-not $KeepInfrastructure) {
     Write-Host '[infrastructure] stopping PostgreSQL and Redis' -ForegroundColor Cyan

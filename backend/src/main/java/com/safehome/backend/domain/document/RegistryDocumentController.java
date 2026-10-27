@@ -45,6 +45,7 @@ public class RegistryDocumentController {
         Long userId = auth.requireUser(authorization).getId();
         return ResponseEntity.ok()
             .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CACHE_CONTROL,"no-store")
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=registry-" + id + ".pdf")
             .body(service.download(userId, id));
     }

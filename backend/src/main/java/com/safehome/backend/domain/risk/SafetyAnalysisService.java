@@ -36,8 +36,9 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class SafetyAnalysisService {
 
-    private static final String ANALYSIS_VERSION = "1.0";
+    public static final String ANALYSIS_VERSION = "1.3";
 
+    private final BuildingRegisterRiskInput buildingInput;
     private final ContractRepository contractRepository;
     private final ListingRepository listingRepository;
     private final PropertyRepository propertyRepository;
@@ -65,12 +66,14 @@ public class SafetyAnalysisService {
             RiskScoreCalculator riskScoreCalculator,
             RiskLevelCalculator riskLevelCalculator,
             ListingRepository listingRepository,
-            ContractRepository contractRepository
+            ContractRepository contractRepository,
+            BuildingRegisterRiskInput buildingInput
     ) {
         this.propertyRepository = propertyRepository;
         this.registrySnapshotRepository = registrySnapshotRepository;
         this.registryRightRepository = registryRightRepository;
         this.propertyOwnerRepository = propertyOwnerRepository;
+        this.buildingInput = buildingInput;
         this.riskAnalysisRepository = riskAnalysisRepository;
         this.riskFactorRepository = riskFactorRepository;
         this.riskPolicyVersionService = riskPolicyVersionService;
@@ -79,6 +82,16 @@ public class SafetyAnalysisService {
         this.riskLevelCalculator = riskLevelCalculator;
         this.listingRepository = listingRepository;
         this.contractRepository = contractRepository;
+    }
+
+    public boolean matchesListingInput(Long analysisId,Listing listing) {
+        return riskAnalysisRepository.findById(analysisId)
+            .map(a->java.util.Objects.equals(a.getListingInputFingerprint(),ListingAnalysisFingerprint.of(listing))).orElse(false);
+    }
+
+    public boolean matchesBuildingInput(Long analysisId, Listing listing) {
+        return riskAnalysisRepository.findById(analysisId).map(a->java.util.Objects.equals(
+            a.getBuildingRegisterInputFingerprint(),buildingInput.read(listing).fingerprint())).orElse(false);
     }
 
     @Transactional
@@ -128,8 +141,9 @@ public class SafetyAnalysisService {
                 contract
         );
 
-        List<RiskRuleResult> ruleResults =
-                riskAnalysisEngine.analyze(context);
+        var building = buildingInput.read(listing);
+        List<RiskRuleResult> ruleResults = new java.util.ArrayList<>(riskAnalysisEngine.analyze(context));
+        ruleResults.addAll(building.factors());
 
         RiskScoreCalculationResult scoreResult =
                 riskScoreCalculator.calculate(ruleResults);
@@ -150,6 +164,9 @@ public class SafetyAnalysisService {
                 scoreResult.getTotalScore(),
                 analyzedAt
         );
+
+        riskAnalysis.setListingInputFingerprint(ListingAnalysisFingerprint.of(listing));
+        riskAnalysis.setBuildingRegisterInputFingerprint(building.fingerprint());
 
         RiskAnalysis savedAnalysis =
                 riskAnalysisRepository.save(riskAnalysis);

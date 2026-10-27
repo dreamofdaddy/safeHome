@@ -21,7 +21,14 @@ public final class CallHistory {
     }
     public record Event(Instant timestamp, Job job, Kind kind, BuildingHubClient.Operation operation,
                         Integer page, Integer attempt, Outcome outcome, long elapsedMillis,
-                        String errorCode, Resolution.Status resolutionStatus, Boolean collectionComplete) {
+                        String errorCode, Resolution.Status resolutionStatus, Boolean collectionComplete,
+                        XmlFailure xmlFailure) {
+        public Event(Instant timestamp, Job job, Kind kind, BuildingHubClient.Operation operation,
+                     Integer page, Integer attempt, Outcome outcome, long elapsedMillis,
+                     String errorCode, Resolution.Status resolutionStatus, Boolean collectionComplete) {
+            this(timestamp, job, kind, operation, page, attempt, outcome, elapsedMillis,
+                    errorCode, resolutionStatus, collectionComplete, null);
+        }
         public Event {
             if (timestamp == null || job == null || kind == null || outcome == null || elapsedMillis < 0)
                 throw new IllegalArgumentException("Invalid call history event");
@@ -35,11 +42,12 @@ public final class CallHistory {
         catch (RuntimeException ignored) { /* Diagnostics must not change identification results. */ }
     }
     private static final Set<String> CODES = Set.of("SERVICE_KEY_NOT_CONFIGURED", "UPSTREAM_IO",
-            "UPSTREAM_REJECTED", "RESPONSE_SIZE", "INTERRUPTED", "COLLECTION_DEADLINE",
+            "UPSTREAM_REJECTED", "RESPONSE_SIZE", "EMPTY_RESPONSE", "INTERRUPTED", "COLLECTION_DEADLINE",
             "MALFORMED_RESPONSE_XML_SETUP", "MALFORMED_RESPONSE_XML", "MALFORMED_RESPONSE_HEADER",
             "MALFORMED_RESPONSE_PAGINATION", "MALFORMED_RESPONSE_ITEMS", "INCONSISTENT_PAGINATION",
             "PAGE_LIMIT_EXCEEDED", "INCOMPLETE_COLLECTION", "PARENT_NOT_CORROBORATED",
-            "CANDIDATE_FLOOR_NUMBER_UNAVAILABLE", "UNINTERPRETABLE_CANDIDATE", "LOCAL_CAPACITY_EXCEEDED",
+            "CANDIDATE_FLOOR_NUMBER_UNAVAILABLE", "FLOOR_INFERRED_FROM_UNIT_NUMBER", "FLOOR_INFERENCE_CONFLICT",
+            "UNINTERPRETABLE_CANDIDATE", "LOCAL_CAPACITY_EXCEEDED",
             "UNEXPECTED_FAILURE");
     static String safeCode(String raw) {
         if (raw == null) return null;

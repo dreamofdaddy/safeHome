@@ -60,12 +60,33 @@ public class RegistryDocumentService {
         return new ListingRegistrationResponse(listing, RegistryDocumentResponse.from(document), "등기부 업로드 완료");
     }
 
+    @Transactional
+    public RegistryDocument attach(Long userId,Long listingId,MultipartFile file,java.util.UUID requestId) {
+        listingService.assertOwner(listingId,userId);
+        String name=file==null?null:file.getOriginalFilename();
+        String mime=file==null?null:file.getContentType();
+        if(name==null || !name.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")
+            || (mime!=null && !mime.isBlank() && !java.util.Set.of("application/pdf","application/octet-stream").contains(mime)))
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        byte[] bytes=validatePdf(file);
+        String key=storage.store(bytes);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){
+            @Override public void afterCompletion(int status){if(status!=STATUS_COMMITTED)storage.delete(key);}
+        });
+        name=name.replace('/', '_').replace('\\', '_').replace('\r', '_').replace('\n', '_');
+        if(name.length()>255)name=name.substring(name.length()-255);
+        RegistryDocument doc=new RegistryDocument(userId,null,listingId,name,bytes.length,sha256(bytes),key);
+        doc.consentToAnalysis(requestId);
+        return documents.saveAndFlush(doc);
+    }
+
     @Transactional(readOnly = true)
     public RegistryDocumentResponse get(Long userId, Long id) { return RegistryDocumentResponse.from(owned(userId, id)); }
 
     @Transactional(readOnly = true)
     public List<RegistryDocumentResponse> mine(Long userId) {
         return documents.findByUploadedByUserIdOrderByCreatedAtDesc(userId).stream()
+            .filter(d->d.getListingId()==null || listingService.isActiveOwned(d.getListingId(),userId))
             .map(RegistryDocumentResponse::from).toList();
     }
 
@@ -89,6 +110,7 @@ public class RegistryDocumentService {
         RegistryDocument doc = documents.findById(id)
             .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
         if (!doc.getUploadedByUserId().equals(userId)) throw new BusinessException(ErrorCode.FORBIDDEN);
+        if(doc.getListingId()!=null) listingService.assertOwner(doc.getListingId(),userId);
         return doc;
     }
 
@@ -101,7 +123,7 @@ public class RegistryDocumentService {
                     || bytes[3] != 'F' || bytes[4] != '-')
                 throw new BusinessException(ErrorCode.INVALID_REQUEST);
             try (var pdf = Loader.loadPDF(bytes)) {
-                if (pdf.getNumberOfPages() < 1 || pdf.getNumberOfPages() > 50)
+                if (pdf.isEncrypted() || pdf.getNumberOfPages() < 1 || pdf.getNumberOfPages() > 50)
                     throw new BusinessException(ErrorCode.INVALID_REQUEST);
             }
             return bytes;

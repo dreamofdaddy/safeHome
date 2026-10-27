@@ -42,20 +42,20 @@ class CallHistoryTest {
         assertEquals(6, lines.size()); // start, failed Expos, retry, Title, Basis, finish
         for (String line : lines) {
             var event = mapper.readTree(line);
-            assertEquals(job.id().toString(), event.path("job").path("id").asText());
+            assertEquals(job.id().toString(), event.path("job").path("id").asString());
             assertEquals(42, event.path("job").path("identificationId").asInt());
             assertTrue(event.path("elapsedMillis").asLong() >= 0);
             assertSafe(line);
         }
-        assertEquals("UPSTREAM_HTTP_503", mapper.readTree(lines.get(1)).path("errorCode").asText());
+        assertEquals("UPSTREAM_HTTP_503", mapper.readTree(lines.get(1)).path("errorCode").asString());
         assertEquals(2, mapper.readTree(lines.get(2)).path("attempt").asInt());
-        assertEquals("SUCCESS", mapper.readTree(lines.get(2)).path("outcome").asText());
-        assertEquals("COMPLETED", mapper.readTree(lines.get(5)).path("outcome").asText());
+        assertEquals("SUCCESS", mapper.readTree(lines.get(2)).path("outcome").asString());
+        assertEquals("COMPLETED", mapper.readTree(lines.get(5)).path("outcome").asString());
         new FileCallHistory(directory).record(event(job, Instant.now()));
         assertEquals(7, lines().size());
         assertEquals(0, history.writeFailures());
     }
-    @Test void malformedResponseAndAuthenticationAreNotRetriedOrRecordedVerbatim() throws Exception {
+    @Test void malformedResponseRetriesAreBoundedAndAuthenticationIsNeverRetried() throws Exception {
         var history = new FileCallHistory(directory);
         for (String response : List.of("<response>"+PRIVATE,
                 "<OpenAPI_ServiceResponse><returnReasonCode>30</returnReasonCode><message>"+PRIVATE+"</message></OpenAPI_ServiceResponse>")) {
@@ -66,12 +66,12 @@ class CallHistoryTest {
             var result = new BuildingResolver(client, history).resolve(QUERY);
             assertEquals(Resolution.Status.UNVERIFIABLE, result.status());
             assertFalse(result.collectionComplete());
-            assertEquals(1, calls.get());
+            assertEquals(response.startsWith("<response>") ? 4 : 1, calls.get());
         }
-        assertEquals(6, lines().size());
+        assertEquals(9, lines().size());
         for(String line: lines()) assertSafe(line);
-        assertEquals("EXPOS_PAGE_1_MALFORMED_RESPONSE_XML", mapper.readTree(lines().get(2)).path("errorCode").asText());
-        assertEquals("EXPOS_PAGE_1_UPSTREAM_REJECTED", mapper.readTree(lines().get(5)).path("errorCode").asText());
+        assertEquals("EXPOS_PAGE_1_MALFORMED_RESPONSE_XML", mapper.readTree(lines().get(5)).path("errorCode").asString());
+        assertEquals("EXPOS_PAGE_1_UPSTREAM_REJECTED", mapper.readTree(lines().get(8)).path("errorCode").asString());
     }
     @Test void unknownExceptionsAndCodesCannotLeakIntoHistoryOrApplicationLogs() throws Exception {
         var history = new FileCallHistory(directory);
@@ -100,11 +100,27 @@ class CallHistoryTest {
         var result=new BuildingResolver(client,history).resolve(QUERY);
         assertEquals(Resolution.Status.UNVERIFIABLE,result.status());
         assertFalse(result.collectionComplete()); assertTrue(result.candidates().isEmpty());
-        var events=lines(); assertEquals(4,events.size());
+        var events=lines(); assertEquals(7,events.size());
         assertEquals(2,mapper.readTree(events.get(2)).path("page").asInt());
-        assertEquals("FAILURE",mapper.readTree(events.get(2)).path("outcome").asText());
-        assertEquals("EXPOS_PAGE_2_MALFORMED_RESPONSE_XML",mapper.readTree(events.get(3)).path("errorCode").asText());
+        assertEquals("FAILURE",mapper.readTree(events.get(2)).path("outcome").asString());
+        assertEquals("EXPOS_PAGE_2_MALFORMED_RESPONSE_XML",mapper.readTree(events.get(6)).path("errorCode").asString());
         for(var line:events)assertSafe(line);
+    }
+    @Test void xmlDiagnosticsKeepOnlyTypePositionSizeAndFingerprint() throws Exception {
+        var history=new FileCallHistory(directory);
+        String malformed="<response><secret>"+PRIVATE+" & "+KEY+"</secret></response>";
+        var client=new BuildingHubClient(KEY,uri->malformed.getBytes(java.nio.charset.StandardCharsets.UTF_8),history);
+        var result=new BuildingResolver(client,history).resolve(QUERY);
+        assertFalse(result.collectionComplete());
+        assertEquals("EXPOS_PAGE_1_MALFORMED_RESPONSE_XML",result.reason());
+        var events=lines();assertEquals(6,events.size());
+        var diagnostic=mapper.readTree(events.get(1)).path("xmlFailure");
+        assertEquals("ENTITY_REFERENCE",diagnostic.path("kind").asString());
+        assertEquals(1,diagnostic.path("line").asInt());
+        assertTrue(diagnostic.path("column").asInt()>0);
+        assertEquals(malformed.getBytes(java.nio.charset.StandardCharsets.UTF_8).length,diagnostic.path("responseBytes").asInt());
+        assertTrue(diagnostic.path("responseSha256").asString().matches("[a-f0-9]{64}"));
+        for(String line:events)assertSafe(line);
     }
     @Test void writeFailureIsVisibleWithoutChangingResultOrLoggingPrivateException() throws Exception {
         Path target=directory.resolve("history");
@@ -130,7 +146,7 @@ class CallHistoryTest {
         IntStream.range(0,40).parallel().forEach(n->history.record(event(job,n%2==0?before:after)));
         assertEquals(40,lines().size());
         try(var files=Files.list(directory)){assertEquals(2,files.count());}
-        for(var line:lines()) assertEquals("MCP",mapper.readTree(line).path("job").path("entryPoint").asText());
+        for(var line:lines()) assertEquals("MCP",mapper.readTree(line).path("job").path("entryPoint").asString());
         assertEquals(0,history.writeFailures());
     }
     private CallHistory.Event event(CallHistory.Job job,Instant time) {

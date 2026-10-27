@@ -25,14 +25,41 @@ public class PropertyOwner {
     @Column(name = "owner_name", nullable = false, length = 200)
     private String ownerName;
 
-    @Column(name = "owner_rrn_encrypted", nullable = false)
+    @Column(name = "owner_rrn_encrypted")
     private byte[] ownerRrnEncrypted;
 
-    @Column(name = "owner_rrn_birth6_hash", nullable = false, length = 64)
+    @Column(name = "owner_rrn_birth6_hash", length = 64)
     private String ownerRrnBirth6Hash;
 
-    @Column(name = "ownership_ratio", precision = 5, scale = 2)
+    @Column(name="owner_entity_type",nullable=false,length=20)
+    private String ownerEntityType="UNKNOWN";
+    @Column(name="corporate_registration_encrypted")
+    private byte[] corporateRegistrationEncrypted;
+    public String getOwnerEntityType(){return ownerEntityType;}
+    public static PropertyOwner createCorporation(Property property,RegistrySnapshot snapshot,String name,
+            byte[] encrypted,BigDecimal ratio,LocalDateTime registeredAt) {
+        var owner=new PropertyOwner();owner.property=property;owner.registrySnapshot=snapshot;owner.ownerName=name;
+        owner.ownerEntityType="CORPORATION";owner.corporateRegistrationEncrypted=encrypted==null?null:encrypted.clone();
+        owner.ownershipRatio=ratio;owner.registeredAt=registeredAt;return owner;
+    }
+
+    @Column(name = "ownership_ratio", precision = 12, scale = 8)
     private BigDecimal ownershipRatio;
+    @Column(name = "ownership_share", length = 100)
+    private String ownershipShare;
+    @Column(name="ownership_type",length=20) private String ownershipType="UNKNOWN";
+    @Column(name="registry_priority_number",length=40) private String registryPriorityNumber;
+    @Column(name="owner_address",length=1000) private String ownerAddress;
+    @Column(name="acquisition_amount",precision=20,scale=2) private BigDecimal acquisitionAmount;
+    public String getOwnershipType(){return ownershipType;}
+    public String getRegistryPriorityNumber(){return registryPriorityNumber;}
+    public String getOwnerAddress(){return ownerAddress;}
+    public BigDecimal getAcquisitionAmount(){return acquisitionAmount;}
+    public void preserveSourceEvidence(String kind,String priority,String address,BigDecimal amount){
+        ownershipType=kind==null?"UNKNOWN":kind;registryPriorityNumber=priority;ownerAddress=address;acquisitionAmount=amount;
+    }
+    public String getOwnershipShare() { return ownershipShare; }
+    public void preserveOwnershipShare(String share) { ownershipShare=share; }
 
     @Column(name = "registered_at")
     private LocalDateTime registeredAt;
@@ -56,6 +83,7 @@ public class PropertyOwner {
         owner.property = property;
         owner.registrySnapshot = snapshot;
         owner.ownerName = ownerName;
+        owner.ownerEntityType = "PERSON";
         owner.ownerRrnEncrypted = encryptedIdentifier.clone();
         owner.ownerRrnBirth6Hash = birth6Hash;
         owner.ownershipRatio = ownershipRatio;

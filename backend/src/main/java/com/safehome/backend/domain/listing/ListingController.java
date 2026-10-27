@@ -51,6 +51,16 @@ public class ListingController {
         return ResponseEntity.ok(ApiResponse.success(listingService.findByStatus(status)));
     }
 
+    @PostMapping
+    public ResponseEntity<ApiResponse<ListingResponse>> create(
+            @Valid @RequestBody ListingRegistrationRequest request,
+            @RequestHeader("Authorization") String authorization) {
+        if(request.addressSearchEvidence()==null)
+            throw new com.safehome.backend.common.exception.BusinessException(com.safehome.backend.common.exception.ErrorCode.INVALID_REQUEST);
+        return ResponseEntity.status(201).body(ApiResponse.success(
+            listingService.createPendingAnalysis(authService.requireUser(authorization).getId(),request)));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ListingResponse>> update(
             @PathVariable Long id,

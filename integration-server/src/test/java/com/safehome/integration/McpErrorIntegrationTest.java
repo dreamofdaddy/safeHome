@@ -53,13 +53,13 @@ class McpErrorIntegrationTest {
         try(var files=java.nio.file.Files.list(historyDirectory)) {
             for(var file:files.toList()) for(var line:java.nio.file.Files.readAllLines(file)) {
                 var event=mvcMapper.readTree(line);
-                if(job.equals(event.path("job").path("id").asText())) events.add(event);
+                if(job.equals(event.path("job").path("id").asString())) events.add(event);
             }
         }
         assertEquals(2,events.size()); // No upstream key: no external attempt.
         assertEquals(42,events.get(0).path("job").path("identificationId").asInt());
-        assertEquals("REST",events.get(0).path("job").path("entryPoint").asText());
-        assertEquals("SERVICE_KEY_NOT_CONFIGURED",events.get(1).path("errorCode").asText());
+        assertEquals("REST",events.get(0).path("job").path("entryPoint").asString());
+        assertEquals("SERVICE_KEY_NOT_CONFIGURED",events.get(1).path("errorCode").asString());
         for(String invalid:List.of("-1",MARKER,"99999999999999999999999")) {
             var rejected=client.send(base.copy().header("X-SafeHome-Identification-Id",invalid)
                     .POST(HttpRequest.BodyPublishers.ofString(body)).build(),HttpResponse.BodyHandlers.ofString());
@@ -75,7 +75,7 @@ class McpErrorIntegrationTest {
             var json = mapper.readTree(mapper.writeValueAsString(response));
             assertEquals(17, json.path("id").asInt());
             assertEquals(-32602, json.path("error").path("code").asInt());
-            assertEquals("Invalid params", json.path("error").path("message").asText());
+            assertEquals("Invalid params", json.path("error").path("message").asString());
             assertFalse(json.path("error").has("data"));
             assertSafe(json.toString());
             String transportError = mapper.writeValueAsString(new McpError(error));
@@ -84,22 +84,22 @@ class McpErrorIntegrationTest {
         }
     }
     @Test void failedToolContentIsRedactedButSuccessfulEvidenceIsPreserved() {
-        var failure = new McpSchema.CallToolResult(List.of(new McpSchema.TextContent(MARKER)), true,
+        var failure = new McpSchema.CallToolResult(List.of(McpSchema.TextContent.builder(MARKER).build()), true,
                 Map.of("exception", MARKER), Map.of("debug", MARKER));
         var json = mcpMapper.readTree(mcpMapper.writeValueAsString(failure));
         assertTrue(json.path("isError").asBoolean());
-        assertEquals("Tool execution failed", json.path("content").get(0).path("text").asText());
-        assertEquals("text", json.path("content").get(0).path("type").asText());
+        assertEquals("Tool execution failed", json.path("content").get(0).path("text").asString());
+        assertEquals("text", json.path("content").get(0).path("type").asString());
         assertFalse(json.has("structuredContent"));
         assertFalse(json.has("_meta"));
         assertSafe(json.toString());
-        var success = new McpSchema.CallToolResult(List.of(new McpSchema.TextContent("evidence")), false,
+        var success = new McpSchema.CallToolResult(List.of(McpSchema.TextContent.builder("evidence").build()), false,
                 Map.of("status", "UNVERIFIABLE"), Map.of("source", "synthetic"));
         var normal = mcpMapper.readTree(mcpMapper.writeValueAsString(success));
-        assertEquals("text", normal.path("content").get(0).path("type").asText());
-        assertEquals("evidence", normal.path("content").get(0).path("text").asText());
-        assertEquals("UNVERIFIABLE", normal.path("structuredContent").path("status").asText());
-        assertEquals("synthetic", normal.path("_meta").path("source").asText());
+        assertEquals("text", normal.path("content").get(0).path("type").asString());
+        assertEquals("evidence", normal.path("content").get(0).path("text").asString());
+        assertEquals("UNVERIFIABLE", normal.path("structuredContent").path("status").asString());
+        assertEquals("synthetic", normal.path("_meta").path("source").asString());
     }
     @Test void realMcpTransportSanitizesMalformedInputAndKeepsNormalToolFlow() throws Exception {
         var denied = send("{}", null, false);
@@ -140,7 +140,7 @@ class McpErrorIntegrationTest {
         assertEquals(200, valid.statusCode());
         assertTrue(valid.body().contains("UNVERIFIABLE"));
         assertTrue(valid.body().contains("SERVICE_KEY_NOT_CONFIGURED"));
-        assertEquals("text", mvcMapper.readTree(valid.body()).path("result").path("content").get(0).path("type").asText());
+        assertEquals("text", mvcMapper.readTree(valid.body()).path("result").path("content").get(0).path("type").asString());
         assertSafe(valid.body());
         } finally {
             var close = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+"/mcp"))

@@ -14,7 +14,23 @@ public record ParsedRegistryDocument(
     List<Right> rights
 ) {
     public record Owner(String name, String maskedIdentifier,
-                        BigDecimal ownershipRatio, String registeredAt) {}
+                        BigDecimal ownershipRatio, String registeredAt, String ownershipShare,
+                        String ownershipType,String priorityNumber,String ownerAddress,BigDecimal acquisitionAmount, String entityType) {
+        public Owner(String name,String maskedIdentifier,BigDecimal ownershipRatio,String registeredAt,String ownershipShare,
+                     String ownershipType,String priorityNumber,String ownerAddress,BigDecimal acquisitionAmount) {
+            this(name,maskedIdentifier,ownershipRatio,registeredAt,ownershipShare,ownershipType,priorityNumber,ownerAddress,acquisitionAmount,"PERSON");
+        }
+        public Owner(String name,String maskedIdentifier,BigDecimal ownershipRatio,String registeredAt,String ownershipShare) {
+            this(name,maskedIdentifier,ownershipRatio,registeredAt,ownershipShare,"UNKNOWN",null,null,null);
+        }
+        public Owner(String name,String maskedIdentifier,BigDecimal ownershipRatio,String registeredAt) {
+            this(name,maskedIdentifier,ownershipRatio,registeredAt,null);
+        }
+    }
     public record Right(String type, String holderName, BigDecimal amount,
-                        Integer priority, String registeredAt, String status) {}
+                        Integer priority, String registeredAt, String status, String sourceName) {
+        public Right(String type,String holderName,BigDecimal amount,Integer priority,String registeredAt,String status) {
+            this(type,holderName,amount,priority,registeredAt,status,null);
+        }
+    }
 }

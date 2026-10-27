@@ -1,23 +1,115 @@
 {
   "type": "object",
   "properties": {
-    "registryPropertyNumber": {"type": "string"},
-    "address": {"type": "string"},
-    "roadAddress": {"type": ["string", "null"]},
-    "buildingName": {"type": ["string", "null"]},
-    "unitNumber": {"type": ["string", "null"]},
-    "observedAt": {"type": "string"},
+    "registryPropertyNumber": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "roadAddress": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "buildingName": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "unitNumber": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "observedAt": {
+      "type": "string"
+    },
     "owners": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "name": {"type": "string"},
-          "maskedIdentifier": {"type": ["string", "null"]},
-          "ownershipRatio": {"type": ["number", "null"]},
-          "registeredAt": {"type": ["string", "null"]}
+          "name": {
+            "type": "string"
+          },
+          "maskedIdentifier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PERSON: printed birth6-******* only; CORPORATION: printed corporate registration number (six digits-hyphen-seven digits or original masks), null if unavailable. Never fabricate identifiers."
+          },
+          "ownershipRatio": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Percentage, not numerator or fraction: 12분의 1 = 8.33333333; null if uncertain."
+          },
+          "registeredAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ownershipShare": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Exact printed share fraction, e.g. 12분의 1; never guess the remaining share."
+          },
+          "ownershipType": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "CO_OWNER",
+              "UNKNOWN"
+            ]
+          },
+          "priorityNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ownerAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "acquisitionAmount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "entityType": {
+            "type": "string",
+            "enum": [
+              "PERSON",
+              "CORPORATION",
+              "UNKNOWN"
+            ]
+          }
         },
-        "required": ["name", "maskedIdentifier", "ownershipRatio", "registeredAt"],
+        "required": [
+          "name",
+          "maskedIdentifier",
+          "ownershipRatio",
+          "registeredAt",
+          "ownershipShare",
+          "ownershipType",
+          "priorityNumber",
+          "ownerAddress",
+          "acquisitionAmount",
+          "entityType"
+        ],
         "additionalProperties": false
       }
     },
@@ -26,18 +118,79 @@
       "items": {
         "type": "object",
         "properties": {
-          "type": {"type": "string", "enum": ["MORTGAGE", "LEASEHOLD", "SEIZURE", "PROVISIONAL_SEIZURE", "OTHER"]},
-          "holderName": {"type": ["string", "null"]},
-          "amount": {"type": ["number", "null"]},
-          "priority": {"type": ["integer", "null"]},
-          "registeredAt": {"type": ["string", "null"]},
-          "status": {"type": "string", "enum": ["ACTIVE", "INACTIVE"]}
+          "type": {
+            "type": "string",
+            "enum": [
+              "MORTGAGE",
+              "LEASEHOLD",
+              "SEIZURE",
+              "PROVISIONAL_SEIZURE",
+              "TRUST",
+              "AUCTION",
+              "OTHER"
+            ]
+          },
+          "holderName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "registeredAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ]
+          },
+          "sourceName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Short printed right name only, without holder names or identifiers."
+          }
         },
-        "required": ["type", "holderName", "amount", "priority", "registeredAt", "status"],
+        "required": [
+          "type",
+          "holderName",
+          "amount",
+          "priority",
+          "registeredAt",
+          "status",
+          "sourceName"
+        ],
         "additionalProperties": false
       }
     }
   },
-  "required": ["registryPropertyNumber", "address", "roadAddress", "buildingName", "unitNumber", "observedAt", "owners", "rights"],
+  "required": [
+    "registryPropertyNumber",
+    "address",
+    "roadAddress",
+    "buildingName",
+    "unitNumber",
+    "observedAt",
+    "owners",
+    "rights"
+  ],
   "additionalProperties": false
 }

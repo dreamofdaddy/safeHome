@@ -89,27 +89,27 @@ public final class BuildingHubClient {
             long started = System.nanoTime();
             try {
                 AllPages.Page result = parse(transport.get(uri));
-                record(job, operation, page, attempt + 1, started, null);
+                record(job, operation, page, attempt + 1, started, null, null);
                 return result;
             } catch (UpstreamException e) {
                 String code = CallHistory.safeCode(e.getMessage());
-                record(job, operation, page, attempt + 1, started, code);
-                if (!e.retryable() || attempt >= 1) {
+                record(job, operation, page, attempt + 1, started, code, e.xmlFailure());
+                if (!e.retryable() || attempt >= 3) {
                     // Only fixed operation names, page numbers and safe codes are retained.
                     throw new UpstreamException(operation.name() + "_PAGE_" + page + "_" + code,
-                            e.retryable());
+                            e.retryable(), e.xmlFailure());
                 }
-                pause(300);
+                pause(300L * (attempt + 1));
             } catch (RuntimeException ignored) {
-                record(job, operation, page, attempt + 1, started, "UNEXPECTED_FAILURE");
+                record(job, operation, page, attempt + 1, started, "UNEXPECTED_FAILURE", null);
                 throw new UpstreamException("UNEXPECTED_FAILURE", false);
             }
         }
     }
-    private void record(CallHistory.Job job, Operation operation, int page, int attempt, long start, String code) {
+    private void record(CallHistory.Job job, Operation operation, int page, int attempt, long start, String code, XmlFailure xmlFailure) {
         CallHistory.emit(history, new CallHistory.Event(Instant.now(), job, CallHistory.Kind.API_ATTEMPT,
                 operation, page, attempt, code == null ? CallHistory.Outcome.SUCCESS : CallHistory.Outcome.FAILURE,
-                CallHistory.elapsed(start), code, null, null));
+                CallHistory.elapsed(start), code, null, null, xmlFailure));
     }
     // Global spacing per client: at most 5 upstream calls/second, retries included.
     private synchronized void pace() {
@@ -128,6 +128,7 @@ public final class BuildingHubClient {
         String stage = "XML_SETUP";
         try {
             if (bytes == null || bytes.length > MAX_RESPONSE_BYTES) throw new UpstreamException("RESPONSE_SIZE", false);
+            if (bytes.length == 0) throw new UpstreamException("EMPTY_RESPONSE", true);
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
@@ -172,6 +173,11 @@ public final class BuildingHubClient {
             }
             return new AllPages.Page(page, total, units);
         } catch (UpstreamException e) { throw e; }
+        catch (org.xml.sax.SAXParseException e) {
+            XmlFailure diagnostic = XmlFailure.from(bytes, e);
+            throw new UpstreamException("MALFORMED_RESPONSE_XML",
+                    diagnostic.kind() != XmlFailure.Kind.DOCTYPE_FORBIDDEN, diagnostic);
+        }
         catch (Exception e) { throw new UpstreamException("MALFORMED_RESPONSE_" + stage, false); }
     }
     private static String value(Element element, String tag) {

@@ -79,10 +79,10 @@ class RegistryProcessingIntegrationTest {
         JsonNode building = mapper.readTree(mvc.perform(get("/api/listings/{id}/building-identification", listingId)
                 .header("Authorization", "Bearer " + token)).andExpect(status().isOk())
             .andReturn().getResponse().getContentAsString()).path("data");
-        assertThat(building.path("executionStatus").stringValue()).isEqualTo("INPUT_INCOMPLETE");
+        assertThat(building.path("executionStatus").stringValue()).isEqualTo("NOT_REQUESTED");
         assertThat(building.path("resolutionStatus").isNull()).isTrue();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM building_identifications WHERE listing_id=?",
-                Long.class, listingId)).isEqualTo(1);
+                Long.class, listingId)).isZero();
         mvc.perform(post("/api/listings/{id}/registry-processing", listingId)
                 .header("Authorization", "Bearer " + token))
             .andExpect(status().isConflict());
@@ -138,7 +138,7 @@ class RegistryProcessingIntegrationTest {
     }
 
     @Test
-    void completeInputIsRecordedAsDisabledWhenIntegrationFeatureIsOff() throws Exception {
+    void registryCompletionCreatesNoLookupEvenWithCompleteInput() throws Exception {
         String token = signupAndLogin();
         String metadata = """
             {"address":"서울 송파구 잠실동 19","detailAddress":"160동 101호",
@@ -158,7 +158,7 @@ class RegistryProcessingIntegrationTest {
         mvc.perform(post("/api/listings/{id}/registry-processing", listingId)
                 .header("Authorization", "Bearer " + token)).andExpect(status().isAccepted());
         waitForStatus(listingId, "PARSED");
-        assertThat(buildingStore.current(listingId).executionStatus()).isEqualTo("DISABLED");
+        assertThat(buildingStore.current(listingId).executionStatus()).isEqualTo("NOT_REQUESTED");
         assertThat(buildingStore.current(listingId).resolutionStatus()).isNull();
     }
 

@@ -10,11 +10,14 @@ public record ListingRegistryProcessingResponse(
     String errorCode,
     Long propertyId,
     Long registrySnapshotId,
-    LocalDateTime processedAt
+    LocalDateTime processedAt,
+    AddressMismatch addressMismatch
 ) {
-    public static ListingRegistryProcessingResponse from(RegistryDocument document) {
+    public record AddressMismatch(String registeredAddress,String lotAddress,String roadAddress) {}
+    public static ListingRegistryProcessingResponse from(RegistryDocument document) { return from(document,null); }
+    public static ListingRegistryProcessingResponse from(RegistryDocument document,AddressMismatch mismatch) {
         return new ListingRegistryProcessingResponse(document.getListingId(), document.getId(),
             document.getStatus(), document.getErrorCode(), document.getPropertyId(),
-            document.getRegistrySnapshotId(), document.getProcessedAt());
+            document.getRegistrySnapshotId(), document.getProcessedAt(), mismatch);
     }
 }

@@ -80,7 +80,7 @@ class PriorityRightRiskRuleTest {
     }
 
     @Test
-    void leaseholdRegisteredAfterContractDoesNotProduceRisk() {
+    void activeLeaseholdRemainsVisibleEvenWhenNotEarlierThanContract() {
 
         RegistryRight right = mock(RegistryRight.class);
 
@@ -110,7 +110,8 @@ class PriorityRightRiskRuleTest {
         List<RiskRuleResult> results =
                 rule.evaluate(context);
 
-        assertTrue(results.isEmpty());
+        assertEquals(1, results.size());
+        assertTrue(results.get(0).getDescription().contains("전세권"));
     }
 
     @Test
@@ -188,7 +189,7 @@ class PriorityRightRiskRuleTest {
     }
 
     @Test
-    void noContractDoesNotProduceRisk() {
+    void activeLeaseholdRemainsVisibleWithoutClaimingPriorityWhenContractIsMissing() {
 
         RegistryRight right = mock(RegistryRight.class);
 
@@ -211,6 +212,7 @@ class PriorityRightRiskRuleTest {
         List<RiskRuleResult> results =
                 rule.evaluate(context);
 
-        assertTrue(results.isEmpty());
+        assertEquals(1, results.size());
+        assertTrue(results.get(0).getDescription().contains("전세권"));
     }
 }

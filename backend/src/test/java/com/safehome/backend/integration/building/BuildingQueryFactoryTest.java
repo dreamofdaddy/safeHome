@@ -13,6 +13,16 @@ class BuildingQueryFactoryTest {
     private final BuildingQueryFactory factory = new BuildingQueryFactory();
 
     @Test
+    void listingQueryIsIndependentOfRegistryAndRequiresExplicitFloor() {
+        var ready = factory.buildListing(listing("160동 지하2층 101호", evidence()));
+        assertThat(ready.status()).isEqualTo(BuildingQueryFactory.Status.READY);
+        assertThat(ready.query().floorGroundType()).isEqualTo(BuildingQuery.Ground.BELOW_GROUND);
+        assertThat(ready.query().floorNumber()).isEqualTo(2);
+        assertThat(factory.buildListing(listing("160동 101호", evidence())).reason()).isEqualTo("EXPLICIT_FLOOR_AND_UNIT_REQUIRED");
+        assertThat(factory.buildListing(listing("160동 1층 101호", null)).reason()).isEqualTo("CONFIRMED_JIBUN_REQUIRED");
+    }
+
+    @Test
     void postcodeEvidenceChecksCodeAndSelectedAddress() {
         assertThat(evidence().validatedFor("서울 송파구 잠실동 19").bcode()).isEqualTo("1171010100");
         assertThatThrownBy(() -> evidence().validatedFor("서울 송파구 잠실동 20"))

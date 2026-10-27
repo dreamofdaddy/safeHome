@@ -53,13 +53,14 @@ public class ListingSafetyAnalysisService {
             throw new BusinessException(ErrorCode.ANALYSIS_NOT_READY);
         }
         RegistrySnapshot latestSnapshot = latestSnapshot(listing);
-        if (listing.getRiskAnalysisId() == null) {
-            documents.findTopByListingIdOrderByIdDesc(listingId)
-                .filter(value -> "PARSED".equals(value.getStatus()))
-                .orElseThrow(() -> new BusinessException(ErrorCode.ANALYSIS_NOT_READY));
-        } else {
+        // History selection is read-only; every execution requires the current document to be ready.
+        documents.findTopByListingIdOrderByIdDesc(listingId)
+            .filter(value -> "PARSED".equals(value.getStatus()))
+            .orElseThrow(() -> new BusinessException(ErrorCode.ANALYSIS_NOT_READY));
+        if (listing.getRiskAnalysisId() != null) {
             SafetyAnalysisResponse current = riskAnalyses.findResultById(listing.getRiskAnalysisId());
-            if (reanalysisReason(current, latestSnapshot.getId()) == SafetyReanalysisReason.UP_TO_DATE) {
+            if (reanalysisReason(listing, current, latestSnapshot.getId()) == SafetyReanalysisReason.UP_TO_DATE
+                    && safetyAnalysis.matchesBuildingInput(current.id(),listing)) {
                 return response(listing, current, latestSnapshot.getId());
             }
         }
@@ -92,8 +93,12 @@ public class ListingSafetyAnalysisService {
             .orElseThrow(() -> new BusinessException(ErrorCode.ANALYSIS_NOT_READY));
     }
 
-    private SafetyReanalysisReason reanalysisReason(SafetyAnalysisResponse analysis,
+    private SafetyReanalysisReason reanalysisReason(Listing listing, SafetyAnalysisResponse analysis,
             Long latestSnapshotId) {
+        if (!SafetyAnalysisService.ANALYSIS_VERSION.equals(analysis.analysisVersion()))
+            return SafetyReanalysisReason.ANALYSIS_VERSION_CHANGED;
+        if (!safetyAnalysis.matchesListingInput(analysis.id(),listing))
+            return SafetyReanalysisReason.LISTING_CHANGED;
         if (!Objects.equals(analysis.policyVersion(), policies.getActivePolicyVersion())) {
             return SafetyReanalysisReason.POLICY_VERSION_CHANGED;
         }
@@ -110,7 +115,7 @@ public class ListingSafetyAnalysisService {
             .filter(SEVERITY_ORDER::containsKey)
             .max(Comparator.comparingInt(SEVERITY_ORDER::get))
             .orElse(null);
-        SafetyReanalysisReason reason = reanalysisReason(analysis, latestSnapshotId);
+        SafetyReanalysisReason reason = reanalysisReason(listing, analysis, latestSnapshotId);
         return new ListingSafetyResultResponse(listing.getId(), listing.getStatus(), analysis,
             summary(analysis.riskLevel(), analysis.factors().size()), highestSeverity,
             analysis.factors().size(), latestSnapshotId,

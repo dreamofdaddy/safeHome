@@ -33,6 +33,7 @@ function Get-ContainerStatus {
 $rows = @(
     [pscustomobject]@{ Component = 'Frontend'; Endpoint = 'http://localhost:5173'; Status = Get-HttpStatus 'http://localhost:5173' }
     [pscustomobject]@{ Component = 'Backend'; Endpoint = 'http://localhost:8080/actuator/health'; Status = Get-HttpStatus 'http://localhost:8080/actuator/health' }
+    [pscustomobject]@{ Component = 'Integration Server'; Endpoint = 'http://localhost:8090/actuator/health'; Status = Get-HttpStatus 'http://localhost:8090/actuator/health' }
     [pscustomobject]@{ Component = 'PostgreSQL'; Endpoint = '127.0.0.1:5432'; Status = Get-ContainerStatus 'safehome-postgres' }
     [pscustomobject]@{ Component = 'Redis'; Endpoint = '127.0.0.1:6379'; Status = Get-ContainerStatus 'safehome-redis' }
 )
@@ -43,7 +44,9 @@ $rows | Format-Table -AutoSize
 
 $allReady = ($rows[0].Status -eq 'RUNNING') -and
     ($rows[1].Status -eq 'RUNNING') -and
-    ($rows[2].Status -match '^running / healthy$') -and
-    ($rows[3].Status -match '^running / healthy$')
+    ($rows[2].Status -eq 'RUNNING') -and
+    ($rows[3].Status -match '^running / healthy$') -and
+    ($rows[4].Status -match '^running / healthy$')
 
 if (-not $allReady) { exit 1 }
+exit 0

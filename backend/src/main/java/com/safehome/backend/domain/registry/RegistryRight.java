@@ -42,6 +42,13 @@ public class RegistryRight {
     @Column(name = "holder_name", length = 200)
     private String holderName;
 
+    @Column(name = "source_name", length = 200)
+    private String sourceName;
+
+    public String getSourceName() { return sourceName; }
+
+    public void preserveSourceName(String sourceName) { this.sourceName = sourceName; }
+
     @Column(name = "amount", precision = 15, scale = 0)
     private BigDecimal amount;
 

@@ -45,6 +45,9 @@ public class RegistryDocument {
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
 
+    @Column(name="analysis_request_id") private java.util.UUID analysisRequestId;
+    @Column(name="analysis_consented_at") private LocalDateTime analysisConsentedAt;
+    public void consentToAnalysis(java.util.UUID requestId) { analysisRequestId=requestId;analysisConsentedAt=LocalDateTime.now(); }
     protected RegistryDocument() {}
     public RegistryDocument(Long userId, Long propertyId, Long listingId, String filename,
                             long size, String sha256, String storageKey) {

@@ -1,6 +1,7 @@
 package com.safehome.backend.domain.document;
 
 import com.safehome.backend.domain.document.parser.RegistryExtractionValidator;
+import com.safehome.backend.domain.document.parser.RegistryValidationDiagnostics;
 import com.safehome.backend.domain.document.parser.RegistryParseException;
 import com.safehome.backend.domain.document.parser.ParsedRegistryDocument;
 import com.safehome.backend.domain.document.parser.VerifiedRegistryDocument;
@@ -15,7 +16,6 @@ import com.safehome.backend.domain.registry.RegistryRight;
 import com.safehome.backend.domain.registry.RegistryRightRepository;
 import com.safehome.backend.domain.registry.RegistrySnapshot;
 import com.safehome.backend.domain.registry.RegistrySnapshotRepository;
-import com.safehome.backend.integration.building.BuildingIdentificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,17 +29,17 @@ public class DocumentAnalysisPersistenceService {
     private final RegistryRightRepository rights;
     private final OwnerIdentityService identities;
     private final RegistryExtractionValidator validator;
-    private final BuildingIdentificationService buildingIdentifications;
+    private final RegistryValidationDiagnostics diagnostics;
 
     public DocumentAnalysisPersistenceService(RegistryDocumentRepository documents,
             ListingRepository listings, PropertyRepository properties,
             RegistrySnapshotRepository snapshots, PropertyOwnerRepository owners,
             RegistryRightRepository rights, OwnerIdentityService identities,
-            RegistryExtractionValidator validator, BuildingIdentificationService buildingIdentifications) {
+            RegistryExtractionValidator validator,
+            RegistryValidationDiagnostics diagnostics) {
         this.documents = documents; this.listings = listings; this.properties = properties;
         this.snapshots = snapshots; this.owners = owners; this.rights = rights;
-        this.identities = identities; this.validator = validator;
-        this.buildingIdentifications = buildingIdentifications;
+        this.identities = identities; this.validator = validator; this.diagnostics = diagnostics;
     }
 
     @Transactional
@@ -47,7 +47,13 @@ public class DocumentAnalysisPersistenceService {
         RegistryDocument document = documents.findById(documentId).orElseThrow();
         if (!"PROCESSING".equals(document.getStatus())) return;
         Listing listing = listings.findByIdForUpdate(document.getListingId()).orElseThrow();
-        VerifiedRegistryDocument verified = validator.validate(parsed, listing);
+        VerifiedRegistryDocument verified;
+        try {
+            verified = validator.validate(parsed, listing);
+        } catch (RegistryParseException ex) {
+            diagnostics.record(documentId, listing, parsed, ex.code());
+            throw ex;
+        }
 
         Property property = properties.findByRegistryPropertyNumber(verified.registryPropertyNumber())
             .orElseGet(() -> properties.save(new Property(verified.registryPropertyNumber(),
@@ -60,21 +66,27 @@ public class DocumentAnalysisPersistenceService {
         RegistrySnapshot snapshot = snapshots.save(RegistrySnapshot.create(property,
             "UPLOADED_PDF", verified.observedAt(), document.getSha256()));
         for (VerifiedRegistryDocument.Owner owner : verified.owners()) {
-            owners.save(PropertyOwner.create(property, snapshot, owner.name(),
-                identities.encryptMaskedIdentifier(owner.maskedIdentifier()),
-                identities.hashBirth6(owner.maskedIdentifier()),
-                owner.ownershipRatio(), owner.registeredAt()));
+            var savedOwner="CORPORATION".equals(owner.entityType())
+                ? PropertyOwner.createCorporation(property,snapshot,owner.name(),
+                    owner.maskedIdentifier()==null?null:identities.encryptCorporateIdentifier(owner.maskedIdentifier()),owner.ownershipRatio(),owner.registeredAt())
+                : PropertyOwner.create(property,snapshot,owner.name(),identities.encryptMaskedIdentifier(owner.maskedIdentifier()),
+                    identities.hashBirth6(owner.maskedIdentifier()),owner.ownershipRatio(),owner.registeredAt());
+            savedOwner.preserveOwnershipShare(owner.ownershipShare());
+            savedOwner.preserveSourceEvidence(owner.ownershipType(),owner.priorityNumber(),owner.ownerAddress(),owner.acquisitionAmount());
+            owners.save(savedOwner);
         }
         for (VerifiedRegistryDocument.Right right : verified.rights()) {
-            rights.save(RegistryRight.create(snapshot, right.type(), right.holderName(),
-                right.amount(), right.priority(), right.registeredAt(), right.status()));
+            var savedRight = RegistryRight.create(snapshot, right.type(), right.holderName(),
+                right.amount(), right.priority(), right.registeredAt(), right.status());
+            savedRight.preserveSourceName(right.sourceName());
+            rights.save(savedRight);
         }
 
         listing.markRegistryParsed(property.getId());
         document.markParsed(property.getId(), snapshot.getId(),
             verified.registryPropertyNumber(), provider, model);
         snapshots.flush();
-        buildingIdentifications.prepare(listing, snapshot.getId(), documentId, verified);
+        // Building Hub is queried only by an explicit authenticated lookup request.
     }
 
     private String fallback(String parsed, String original) {

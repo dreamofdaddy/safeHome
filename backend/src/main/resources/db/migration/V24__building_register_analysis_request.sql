@@ -1,0 +1,2 @@
+ALTER TABLE building_register_reviews ADD COLUMN analysis_request_id UUID;
+CREATE UNIQUE INDEX uq_building_register_analysis_request ON building_register_reviews(listing_id,analysis_request_id) WHERE analysis_request_id IS NOT NULL;

@@ -197,7 +197,7 @@ class SafetyAnalysisServiceIntegrationTest {
     }
 
     @Test
-    void shouldCalculateMediumRiskFromCoOwnerIssue() {
+    void shouldNotScoreCoOwnerIssueWhileAssessmentIsDeferred() {
         // Registry 위험 요소 제거
         jdbcTemplate.update("""
             UPDATE registry_rights
@@ -244,27 +244,10 @@ class SafetyAnalysisServiceIntegrationTest {
         assertThat(response.policyVersion())
                 .isEqualTo("V2");
 
-        assertThat(response.riskLevel())
-                .isEqualTo(CommonCodes.RISK_LEVEL_MEDIUM);
-
-        assertThat(response.riskScore())
-                .isEqualByComparingTo("25.00");
-
-        assertThat(response.factors())
-                .hasSize(1);
-
-        assertThat(response.factors())
-                .anySatisfy(factor -> {
-                    assertThat(factor.factorType())
-                            .isEqualTo(
-                                    CommonCodes.RISK_FACTOR_TYPE_CO_OWNER_ISSUE);
-
-                    assertThat(factor.severity())
-                            .isEqualTo(CommonCodes.RISK_SEVERITY_HIGH);
-
-                    assertThat(factor.score())
-                            .isEqualByComparingTo("25.00");
-                });
+        // Co-owner assessment is deferred; retain the owners but do not create a risk factor.
+        assertThat(response.riskLevel()).isEqualTo(CommonCodes.RISK_LEVEL_LOW);
+        assertThat(response.riskScore()).isEqualByComparingTo("0.00");
+        assertThat(response.factors()).isEmpty();
     }
 
     @Test

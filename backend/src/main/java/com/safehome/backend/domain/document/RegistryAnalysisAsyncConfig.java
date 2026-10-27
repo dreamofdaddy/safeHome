@@ -29,4 +29,10 @@ public class RegistryAnalysisAsyncConfig {
         executor.initialize();
         return executor;
     }
+    @Bean(name = "buildingRegisterExecutor")
+    public ThreadPoolTaskExecutor buildingRegisterExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1); executor.setMaxPoolSize(1); executor.setQueueCapacity(20);
+        executor.setThreadNamePrefix("building-register-"); executor.initialize(); return executor;
+    }
 }
